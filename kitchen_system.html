@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CK Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f0f10;--sur:#1a1a1e;--sur2:#222228;--bdr:rgba(255,255,255,0.08);--bdr2:rgba(255,255,255,0.14);--tx:#f0f0f2;--tx2:#888896;--tx3:#555560;--ac:#4f8ef7;--acd:rgba(79,142,247,0.15);--gr:#3ecf8e;--grd:rgba(62,207,142,0.12);--am:#f5a623;--amd:rgba(245,166,35,0.12);--rd:#f05454;--rdd:rgba(240,84,84,0.12);--pu:#9b7cf8;--pud:rgba(155,124,248,0.12);--font:'Noto Sans JP',sans-serif;--mono:'JetBrains Mono',monospace;--r:10px;--rsm:6px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);font-family:var(--font);font-size:14px;min-height:100vh;overflow-x:hidden}
+.shell{display:flex;min-height:100vh}
+.sidebar{width:220px;background:var(--sur);border-right:1px solid var(--bdr);display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto}
+.main{flex:1;min-width:0}
+.logo{padding:20px 18px 16px;border-bottom:1px solid var(--bdr)}
+.logo-t{font-size:15px;font-weight:700}
+.logo-s{font-size:11px;color:var(--tx3);margin-top:2px;font-family:var(--mono)}
+.nav-sec{padding:14px 10px 6px}
+.nav-lbl{font-size:10px;color:var(--tx3);font-weight:500;letter-spacing:1.2px;padding:0 8px;margin-bottom:5px}
+.nav-i{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:var(--rsm);cursor:pointer;color:var(--tx2);font-size:13px;transition:all .15s;user-select:none}
+.nav-i:hover{background:var(--sur2);color:var(--tx)}
+.nav-i.active{background:var(--acd);color:var(--ac);font-weight:500}
+.nav-i svg{width:16px;height:16px;flex-shrink:0}
+.nbadge{margin-left:auto;background:var(--rd);color:#fff;font-size:10px;padding:1px 6px;border-radius:100px;font-weight:600}
+/* PIN */
+.pin-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000}
+.pin-box{background:var(--sur);border:1px solid var(--bdr2);border-radius:16px;padding:36px;width:340px;text-align:center}
+.pin-logo{font-size:20px;font-weight:700;margin-bottom:4px}
+.pin-sub{font-size:12px;color:var(--tx2);margin-bottom:22px}
+.pin-sel select{width:100%;background:var(--sur2);border:1px solid var(--bdr2);color:var(--tx);border-radius:var(--rsm);padding:10px 12px;font-size:13px;font-family:var(--font);margin-bottom:14px}
+.pin-inp{display:flex;gap:10px;justify-content:center;margin-bottom:20px}
+.pin-d{width:52px;height:60px;background:var(--sur2);border:1px solid var(--bdr2);border-radius:var(--r);font-size:22px;font-family:var(--mono);color:var(--tx);text-align:center;outline:none;transition:border-color .15s}
+.pin-d:focus{border-color:var(--ac)}
+.pin-btn{width:100%;background:var(--ac);color:#fff;border:none;border-radius:var(--r);padding:12px;font-size:14px;font-weight:600;font-family:var(--font);cursor:pointer}
+.pin-btn:hover{opacity:.85}
+.pin-err{color:var(--rd);font-size:12px;margin-top:8px;min-height:16px}
+.pin-hint{margin-top:14px;font-size:11px;color:var(--tx3);line-height:1.7}
+/* Layout */
+.ph{padding:22px 26px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.ph-title{font-size:20px;font-weight:700}
+.ph-sub{font-size:12px;color:var(--tx2);margin-top:3px}
+.pc{padding:0 26px 40px}
+.page{display:none}.page.active{display:block}
+/* Cards */
+.mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px}
+.metric{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:14px 16px}
+.metric-l{font-size:11px;color:var(--tx3);font-weight:500;letter-spacing:.4px;margin-bottom:7px}
+.metric-v{font-size:24px;font-weight:700;line-height:1}
+.metric-n{font-size:11px;color:var(--tx2);margin-top:5px}
+.card{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);margin-bottom:14px;overflow:hidden}
+.ch{padding:13px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.ct{font-size:13px;font-weight:600}
+.cb{padding:14px 16px}
+/* Table */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:11px;color:var(--tx3);font-weight:500;padding:7px 11px;text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
+td{padding:8px 11px;border-bottom:1px solid var(--bdr);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,0.018)}
+/* Badge */
+.badge{display:inline-flex;align-items:center;font-size:11px;padding:2px 8px;border-radius:100px;font-weight:500;white-space:nowrap}
+.bg{background:var(--grd);color:var(--gr)}
+.ba{background:var(--amd);color:var(--am)}
+.br{background:var(--rdd);color:var(--rd)}
+.bb{background:var(--acd);color:var(--ac)}
+.bp{background:var(--pud);color:var(--pu)}
+/* Btn */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:var(--rsm);border:1px solid var(--bdr2);background:transparent;color:var(--tx);font-size:13px;font-family:var(--font);cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn:hover{background:var(--sur2)}
+.btn-p{background:var(--ac);border-color:var(--ac);color:#fff}
+.btn-p:hover{opacity:.85;background:var(--ac)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-rd{border-color:var(--rd);color:var(--rd)}
+.btn-rd:hover{background:var(--rdd)}
+/* Form */
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:11px}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px;margin-bottom:11px}
+.fgrp{display:flex;flex-direction:column;gap:4px}
+.flbl{font-size:11px;color:var(--tx2);font-weight:500}
+.fi{background:var(--sur2);border:1px solid var(--bdr2);color:var(--tx);border-radius:var(--rsm);padding:9px 11px;font-size:13px;font-family:var(--font);outline:none;width:100%;transition:border-color .15s}
+.fi:focus{border-color:var(--ac)}
+.fi[readonly]{opacity:.55;cursor:default}
+textarea.fi{resize:vertical;min-height:72px}
+.factions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+/* Progress */
+.pw{background:var(--sur2);border-radius:100px;height:5px;min-width:50px}
+.pb{height:5px;border-radius:100px;transition:width .3s}
+/* Alert */
+.alert{padding:10px 14px;border-radius:var(--rsm);font-size:13px;display:flex;align-items:flex-start;gap:8px;margin-bottom:12px;line-height:1.5}
+.aw{background:var(--amd);border:1px solid rgba(245,166,35,.25);color:var(--am)}
+.ar{background:var(--rdd);border:1px solid rgba(240,84,84,.25);color:var(--rd)}
+.ag{background:var(--grd);border:1px solid rgba(62,207,142,.25);color:var(--gr)}
+/* Lot code */
+.lc{font-family:var(--mono);font-size:12px;background:var(--sur2);padding:2px 7px;border-radius:4px}
+/* Slip */
+.slip{background:var(--sur2);border:1px solid var(--bdr2);border-radius:var(--r);padding:18px;margin-top:12px}
+.slip-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--bdr)}
+/* Mobile */
+.mnav{display:none;background:var(--sur);border-bottom:1px solid var(--bdr);padding:8px 12px;gap:2px;flex-wrap:nowrap;overflow-x:auto}
+.mni{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 10px;border-radius:var(--rsm);cursor:pointer;color:var(--tx3);font-size:10px;white-space:nowrap;flex-shrink:0;transition:all .15s}
+.mni.active{color:var(--ac);background:var(--acd)}
+.mni svg{width:18px;height:18px}
+/* Tabs */
+.tabs{display:flex;gap:2px;background:var(--sur2);border-radius:var(--rsm);padding:3px;margin-bottom:14px;width:fit-content}
+.tab{padding:6px 14px;border-radius:4px;font-size:12px;cursor:pointer;color:var(--tx2);transition:all .15s}
+.tab.active{background:var(--sur);color:var(--tx);font-weight:500}
+/* qty */
+.qinp{width:58px;background:var(--sur2);border:1px solid var(--bdr);color:var(--tx);border-radius:var(--rsm);padding:4px 6px;font-size:13px;text-align:center;font-family:var(--font);outline:none}
+.qinp:focus{border-color:var(--ac)}
+/* role pill */
+.rpill{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 10px;border-radius:100px;background:var(--sur2);color:var(--tx2);border:1px solid var(--bdr)}
+/* message bubble */
+.msg-bubble{background:var(--sur2);border:1px solid var(--bdr2);border-radius:var(--r);padding:12px 14px;margin-bottom:8px}
+.msg-from{font-size:11px;color:var(--ac);font-weight:500;margin-bottom:4px}
+.msg-body{font-size:13px;line-height:1.6}
+.msg-time{font-size:11px;color:var(--tx3);margin-top:5px}
+/* accounting */
+.acc-card{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:16px;margin-bottom:10px}
+.acc-shop-name{font-size:15px;font-weight:600;margin-bottom:10px}
+.acc-total{font-size:28px;font-weight:700;color:var(--ac)}
+.acc-sub{font-size:12px;color:var(--tx2);margin-top:3px}
+/* editable price */
+.eprice{font-family:var(--mono);cursor:pointer;border-bottom:1px dashed var(--tx3);padding-bottom:1px}
+.eprice:hover{border-bottom-color:var(--ac);color:var(--ac)}
+/* empty */
+.empty{text-align:center;padding:36px;color:var(--tx3);font-size:13px}
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-box{background:var(--sur);border:1px solid var(--bdr2);border-radius:var(--r);width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
+.modal-head{padding:16px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-size:14px;font-weight:600}
+.modal-close{background:none;border:none;color:var(--tx3);font-size:20px;cursor:pointer;line-height:1;padding:2px 6px}
+.modal-close:hover{color:var(--tx)}
+.modal-body{padding:18px}
+.modal-foot{padding:14px 18px;border-top:1px solid var(--bdr);display:flex;gap:8px;justify-content:flex-end}
+/* btn-warn */
+.btn-warn{border-color:var(--am);color:var(--am)}
+.btn-warn:hover{background:var(--amd)}
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:900;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-box{background:var(--sur);border:1px solid var(--bdr2);border-radius:var(--r);width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
+.modal-head{padding:14px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-size:14px;font-weight:600}
+.modal-close{background:none;border:none;color:var(--tx3);font-size:22px;cursor:pointer;line-height:1;padding:0 4px}
+.modal-close:hover{color:var(--tx)}
+.modal-body{padding:18px}
+.modal-foot{padding:12px 18px;border-top:1px solid var(--bdr);display:flex;gap:8px;justify-content:flex-end}
+/* stor tag */
+.stor-tag{font-size:11px;padding:1px 6px;border-radius:4px;margin-left:4px}
+.stor-ref{background:rgba(62,207,142,.12);color:var(--gr)}
+.stor-frz{background:rgba(79,142,247,.15);color:var(--ac)}
+.stor-amb{background:rgba(245,166,35,.12);color:var(--am)}
+/* lot group header */
+.lot-group-hd{background:var(--sur2);padding:6px 11px;font-size:11px;font-weight:600;color:var(--tx2);letter-spacing:.5px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bdr)}
+.lot-group-hd .lc{font-size:11px}
+/* sort controls */
+.sort-bar{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+@media(max-width:700px){
+  .sidebar{display:none}.mnav{display:flex}.shell{flex-direction:column}
+  .ph{padding:14px 14px 0;margin-bottom:12px}.pc{padding:0 14px 60px}
+  .fg2{grid-template-columns:1fr}.fg3{grid-template-columns:1fr 1fr}.ph-title{font-size:17px}
+  .mgrid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:400px){.fg3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- PIN -->
+<div class="pin-screen" id="pin-screen">
+  <div class="pin-box">
+    <div class="pin-logo">CK Manager</div>
+    <div class="pin-sub">ロールを選んでPINを入力</div>
+    <div class="pin-sel">
+      <select id="pin-role" class="fi">
+        <option value="">-- ロールを選択 --</option>
+        <option value="ck">セントラルキッチン</option>
+        <option value="shop1">本店</option>
+        <option value="shop2">ケルン店</option>
+        <option value="shop3">ビルク店</option>
+        <option value="shop4">エッセン店</option>
+        <option value="izakaya">居酒屋</option>
+        <option value="accounting">経理</option>
+      </select>
+    </div>
+    <div class="pin-inp">
+      <input class="pin-d" type="password" maxlength="1" id="p0" inputmode="numeric">
+      <input class="pin-d" type="password" maxlength="1" id="p1" inputmode="numeric">
+      <input class="pin-d" type="password" maxlength="1" id="p2" inputmode="numeric">
+      <input class="pin-d" type="password" maxlength="1" id="p3" inputmode="numeric">
+    </div>
+    <button class="pin-btn" onclick="tryLogin()">ログイン</button>
+    <div class="pin-err" id="pin-err"></div>
+  </div>
+</div>
+
+<!-- App -->
+<div class="shell" id="app" style="display:none">
+  <div class="sidebar">
+    <div class="logo"><div class="logo-t">CK Manager</div><div class="logo-s" id="sb-role"></div></div>
+    <div class="nav-sec">
+      <div class="nav-lbl">メイン</div>
+      <div class="nav-i active" onclick="go('dashboard',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>ダッシュボード
+      </div>
+      <div class="nav-i" onclick="go('order',this)" id="snav-order-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>店舗発注
+        <span class="nbadge" id="order-badge" style="display:none">0</span>
+      </div>
+      <div class="nav-i" onclick="go('messages',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>メッセージ
+        <span class="nbadge" id="msg-badge" style="display:none">!</span>
+      </div>
+    </div>
+    <div class="nav-sec" id="snav-ck-sec">
+      <div class="nav-lbl">セントラルキッチン</div>
+      <div class="nav-i" onclick="go('lot',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 3H8l-2 4h12l-2-4z"/></svg>ロット管理
+      </div>
+      <div class="nav-i" onclick="go('delivery',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 3h15v13H1zM16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>配送・伝票
+      </div>
+      <div class="nav-i" onclick="go('master',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>商品・原価マスタ
+      </div>
+    </div>
+    <div class="nav-sec" id="snav-acc-sec">
+      <div class="nav-lbl">経理</div>
+      <div class="nav-i" onclick="go('monthly',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>月次原価集計
+      </div>
+    </div>
+    <div style="margin-top:auto;padding:12px 10px;border-top:1px solid var(--bdr)">
+      <div class="nav-i" onclick="logout()" style="color:var(--tx3)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>ログアウト
+      </div>
+    </div>
+  </div>
+
+  <div class="mnav" id="mnav">
+    <div class="mni active" onclick="go('dashboard',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>ダッシュ</div>
+    <div class="mni order-only" onclick="go('order',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>発注</div>
+    <div class="mni" onclick="go('messages',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>メッセージ</div>
+    <div class="mni ck-only" onclick="go('lot',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 3H8l-2 4h12l-2-4z"/></svg>ロット</div>
+    <div class="mni ck-only" onclick="go('delivery',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M1 3h15v13H1zM16 8h4l3 3v5h-7V8z"/></svg>配送</div>
+    <div class="mni ck-only" onclick="go('master',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><circle cx="12" cy="12" r="3"/></svg>マスタ</div>
+    <div class="mni acc-only" onclick="go('monthly',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>月次</div>
+  </div>
+
+  <div class="main">
+
+  <!-- DASHBOARD -->
+  <div id="page-dashboard" class="page active">
+    <div class="ph">
+      <div><div class="ph-title">ダッシュボード</div><div class="ph-sub" id="dash-date"></div></div>
+      <span class="rpill" id="dash-role"></span>
+    </div>
+    <div class="pc">
+      <div class="mgrid" id="d-metrics"></div>
+      <div id="d-alerts"></div>
+      <div class="card">
+        <div class="ch"><span class="ct">在庫状況（セントラルキッチン）</span></div>
+        <div class="tw"><table>
+          <thead><tr><th>パウチ番号</th><th>商品名</th><th>現在庫</th><th>残量</th><th>状態</th><th>保管</th><th>有効ロット</th></tr></thead>
+          <tbody id="d-inv"></tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct">期限3日以内のロット</span></div>
+        <div class="tw"><table>
+          <thead><tr><th>パウチ番号</th><th>商品名</th><th>残数</th><th>消費期限</th><th>残り</th></tr></thead>
+          <tbody id="d-exp"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ORDER -->
+  <div id="page-order" class="page">
+    <div class="ph"><div><div class="ph-title">店舗発注</div></div></div>
+    <div class="pc">
+      <div id="o-shop-view">
+        <div class="tabs">
+          <div class="tab active" onclick="shopOrderTab('form',this)">発注フォーム</div>
+          <div class="tab" onclick="shopOrderTab('history',this)">発注履歴</div>
+        </div>
+        <div id="o-form-area">
+        <div class="card">
+          <div class="ch"><span class="ct">発注フォーム</span></div>
+          <div class="cb">
+            <div class="fg2">
+              <div class="fgrp"><label class="flbl">店舗名</label><input class="fi" id="o-shopname" readonly></div>
+              <div class="fgrp"><label class="flbl">納品希望日</label><input class="fi" type="date" id="o-date"></div>
+            </div>
+          </div>
+          <div class="tw"><table>
+            <thead><tr><th>パウチ番号</th><th>商品名</th><th>内容量</th><th>CK在庫</th><th>発注数</th><th>単価(€)</th><th>有効ロット</th></tr></thead>
+            <tbody id="o-items"></tbody>
+          </table></div>
+          <div class="cb">
+            <div class="fgrp" style="margin-bottom:12px">
+              <label class="flbl">備考（アレルギー対応・特記事項など）</label>
+              <textarea class="fi" id="o-note" placeholder="例: チャーシューは厚切りで。アレルギー対応3食分含む。"></textarea>
+            </div>
+            <div class="factions">
+              <button class="btn" onclick="clearQty()">クリア</button>
+              <button class="btn btn-p" onclick="submitOrder()">発注を送信</button>
+            </div>
+          </div>
+        </div>
+        </div>
+        <div id="o-history-area" style="display:none">
+          <div class="card">
+            <div class="ch"><span class="ct">過去の発注履歴</span></div>
+            <div id="o-history-list" class="cb"></div>
+          </div>
+        </div>
+      </div>
+      <div id="o-ck-view" style="display:none">
+        <div class="tabs">
+          <div class="tab active" onclick="oTab('pending',this)">受付中</div>
+          <div class="tab" onclick="oTab('done',this)">完了済み</div>
+        </div>
+        <div id="o-pending"></div>
+        <div id="o-done" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MESSAGES -->
+  <div id="page-messages" class="page">
+    <div class="ph"><div><div class="ph-title">メッセージ</div><div class="ph-sub" id="msg-ph-sub"></div></div></div>
+    <div class="pc">
+      <div id="msg-send-area">
+        <div class="card">
+          <div class="ch"><span class="ct">店舗へメッセージ送信</span></div>
+          <div class="cb">
+            <div class="fg2">
+              <div class="fgrp"><label class="flbl">送信先</label>
+                <select class="fi" id="msg-to">
+                  <option value="all">全店舗</option>
+                  <option value="shop1">本店</option>
+                  <option value="shop2">ケルン店</option>
+                  <option value="shop3">ビルク店</option>
+                  <option value="shop4">エッセン店</option>
+                  <option value="izakaya">居酒屋</option>
+                </select>
+              </div>
+              <div class="fgrp"><label class="flbl">件名</label><input class="fi" id="msg-subject" placeholder="例: 本日の配送について"></div>
+            </div>
+            <div class="fgrp" style="margin-bottom:12px">
+              <label class="flbl">メッセージ本文</label>
+              <textarea class="fi" id="msg-body" style="min-height:90px" placeholder="例: 本日チャーシューの在庫が少なくなっています。発注量を調整してください。"></textarea>
+            </div>
+            <div class="factions"><button class="btn btn-p" onclick="sendMessage()">送信</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct" id="msg-inbox-title">受信メッセージ</span></div>
+        <div class="cb" id="msg-inbox"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOT -->
+  <div id="page-lot" class="page">
+    <div class="ph">
+      <div><div class="ph-title">ロット管理</div></div>
+      <button class="btn btn-p" onclick="showLotForm(true)">+ 新規ロット登録</button>
+    </div>
+    <div class="pc">
+      <div class="card" id="lot-form-card" style="display:none">
+        <div class="ch"><span class="ct">ロット登録</span></div>
+        <div class="cb">
+          <div class="fg2">
+            <div class="fgrp"><label class="flbl">商品</label><select class="fi" id="lf-prod" onchange="genCode()"></select></div>
+            <div class="fgrp"><label class="flbl">仕込み日（DDMM形式でロット番号生成）</label><input class="fi" type="date" id="lf-date" onchange="genCode()"></div>
+          </div>
+          <div class="fg2">
+            <div class="fgrp"><label class="flbl">ロット番号（自動生成）</label><input class="fi" id="lf-code" readonly></div>
+            <div class="fgrp"><label class="flbl">製造数量</label><input class="fi" type="number" id="lf-qty" placeholder="例: 10"></div>
+          </div>
+          <div class="fg2">
+            <div class="fgrp"><label class="flbl">消費期限</label><input class="fi" type="date" id="lf-exp"></div>
+            <div class="fgrp"><label class="flbl">メモ（任意）</label><input class="fi" id="lf-memo"></div>
+          </div>
+          <div class="factions">
+            <button class="btn" onclick="showLotForm(false)">キャンセル</button>
+            <button class="btn btn-p" onclick="regLot()">登録する</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch">
+          <span class="ct">ロット一覧</span>
+          <div class="sort-bar">
+            <select class="fi" id="lf-fs" onchange="renderLots()" style="width:auto;font-size:12px;padding:5px 8px">
+              <option value="">全状態</option>
+              <option value="active">有効</option>
+              <option value="expiring">期限間近</option>
+              <option value="expired">期限切れ</option>
+              <option value="depleted">使い切り</option>
+            </select>
+            <select class="fi" id="lf-view" onchange="renderLots()" style="width:auto;font-size:12px;padding:5px 8px">
+              <option value="grouped">商品ごとにまとめる</option>
+              <option value="date">仕込み日順（古い順）</option>
+            </select>
+          </div>
+        </div>
+        <div id="lot-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DELIVERY -->
+  <div id="page-delivery" class="page">
+    <div class="ph"><div><div class="ph-title">配送・伝票作成</div></div></div>
+    <div class="pc">
+      <div class="card">
+        <div class="ch"><span class="ct">配送待ち発注</span></div>
+        <div id="del-list" class="cb"></div>
+      </div>
+      <div id="slip-wrap" style="display:none">
+        <div class="card">
+          <div class="ch">
+            <span class="ct">配送伝票</span>
+            <div style="display:flex;gap:7px">
+              <button class="btn btn-sm" onclick="window.print()">印刷</button>
+              <button class="btn btn-sm btn-p" onclick="completeDelivery()">配送完了・在庫反映</button>
+            </div>
+          </div>
+          <div class="cb" id="slip-body"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MASTER -->
+  <div id="page-master" class="page">
+    <div class="ph">
+      <div><div class="ph-title">商品・原価マスタ</div><div class="ph-sub">単価をクリックして直接編集</div></div>
+      <button class="btn btn-p" onclick="showProdForm(true)">+ 商品追加</button>
+    </div>
+    <div class="pc">
+      <div class="card" id="prod-form" style="display:none">
+        <div class="ch"><span class="ct">新規商品登録</span></div>
+        <div class="cb">
+          <div class="fg3">
+            <div class="fgrp"><label class="flbl">パウチ番号</label><input class="fi" id="pf-pouch" placeholder="#113TTMM"></div>
+            <div class="fgrp"><label class="flbl">商品名</label><input class="fi" id="pf-name"></div>
+            <div class="fgrp"><label class="flbl">内容量</label><input class="fi" id="pf-vol" placeholder="2000g"></div>
+          </div>
+          <div class="fg3">
+            <div class="fgrp"><label class="flbl">単位</label><input class="fi" id="pf-unit" placeholder="パウチ、本"></div>
+            <div class="fgrp"><label class="flbl">保管方法</label>
+              <select class="fi" id="pf-stor"><option>冷蔵</option><option>冷凍</option><option>常温</option><option>冷蔵/冷凍</option></select>
+            </div>
+            <div class="fgrp"><label class="flbl">最低在庫数</label><input class="fi" type="number" id="pf-min" placeholder="5"></div>
+          </div>
+          <div class="fg2">
+            <div class="fgrp"><label class="flbl">単価（€）</label><input class="fi" type="number" step="0.01" id="pf-price" placeholder="12.50"></div>
+          </div>
+          <div class="factions">
+            <button class="btn" onclick="showProdForm(false)">キャンセル</button>
+            <button class="btn btn-p" onclick="addProd()">登録</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct">商品一覧</span></div>
+        <div class="tw"><table>
+          <thead><tr><th>パウチ番号</th><th>商品名</th><th>内容量</th><th>保管</th><th>最低在庫</th><th>現在庫</th><th>単価(€)</th><th>編集/削除</th></tr></thead>
+          <tbody id="master-tbody"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MONTHLY (経理専用) -->
+  <div id="page-monthly" class="page">
+    <div class="ph">
+      <div><div class="ph-title">原価移動</div></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select class="fi" id="mon-month" onchange="renderMonthly()" style="width:auto"></select>
+        <button class="btn btn-sm" onclick="exportCSV()">CSVエクスポート</button>
+      </div>
+    </div>
+    <div class="pc">
+      <div class="mgrid" id="mon-metrics"></div>
+      <!-- 店舗別合計 -->
+      <div class="card">
+        <div class="ch"><span class="ct">店舗別 合計</span></div>
+        <div class="tw"><table>
+          <thead><tr><th>店舗</th><th>配送回数</th><th>合計金額(€)</th></tr></thead>
+          <tbody id="mon-shop-tbody"></tbody>
+        </table></div>
+      </div>
+      <!-- 明細 -->
+      <div class="card">
+        <div class="ch"><span class="ct">原価移動明細</span></div>
+        <div class="tw"><table>
+          <thead><tr><th>日付</th><th>店舗</th><th>商品名</th><th>数量</th><th>単価(€)</th><th>金額(€)</th></tr></thead>
+          <tbody id="mon-detail"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- /main -->
+</div>
+
+<!-- 商品編集モーダル -->
+<div class="modal-overlay" id="modal-prod" style="display:none" onclick="if(event.target===this)closeProdModal()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title">商品を編集</span>
+      <button class="modal-close" onclick="closeProdModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="fg3">
+        <div class="fgrp"><label class="flbl">パウチ番号</label><input class="fi" id="mp-pouch"></div>
+        <div class="fgrp"><label class="flbl">商品名</label><input class="fi" id="mp-name"></div>
+        <div class="fgrp"><label class="flbl">内容量</label><input class="fi" id="mp-vol"></div>
+      </div>
+      <div class="fg3">
+        <div class="fgrp"><label class="flbl">単位</label><input class="fi" id="mp-unit"></div>
+        <div class="fgrp"><label class="flbl">保管方法</label>
+          <select class="fi" id="mp-stor"><option>冷蔵</option><option>冷凍</option><option>常温</option><option>冷蔵/冷凍</option></select>
+        </div>
+        <div class="fgrp"><label class="flbl">最低在庫数</label><input class="fi" type="number" id="mp-min"></div>
+      </div>
+      <div class="fg2">
+        <div class="fgrp"><label class="flbl">単価（€）</label><input class="fi" type="number" step="0.01" id="mp-price"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-rd" onclick="deleteProdFromModal()">削除</button>
+      <button class="btn" onclick="closeProdModal()">キャンセル</button>
+      <button class="btn btn-p" onclick="saveProd()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ロット編集モーダル -->
+<div class="modal-overlay" id="modal-lot" style="display:none" onclick="if(event.target===this)closeLotModal()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title">ロットを編集</span>
+      <button class="modal-close" onclick="closeLotModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="fgrp" style="margin-bottom:11px">
+        <label class="flbl">ロット番号</label>
+        <input class="fi" id="ml-code" readonly style="font-family:var(--mono)">
+      </div>
+      <div class="fg2">
+        <div class="fgrp"><label class="flbl">商品</label><input class="fi" id="ml-prodname" readonly></div>
+        <div class="fgrp"><label class="flbl">仕込み日</label><input class="fi" id="ml-date" readonly></div>
+      </div>
+      <div class="fg2">
+        <div class="fgrp"><label class="flbl">製造数量</label><input class="fi" type="number" id="ml-qty"></div>
+        <div class="fgrp"><label class="flbl">残数（現在の在庫）</label><input class="fi" type="number" id="ml-rem"></div>
+      </div>
+      <div class="fg2">
+        <div class="fgrp"><label class="flbl">消費期限</label><input class="fi" type="date" id="ml-exp"></div>
+        <div class="fgrp"><label class="flbl">メモ</label><input class="fi" id="ml-memo"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-rd" onclick="deleteLotFromModal()">削除</button>
+      <button class="btn" onclick="closeLotModal()">キャンセル</button>
+      <button class="btn btn-p" onclick="saveLot()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// ★ GASデプロイ後にここにURLを貼り付けてください ★
+// ============================================================
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbx_6irB0j5s1vKIfosK0n0xn2cmULN1GtOOdg2lwByORVP5BcKW1H-FH-UF3MxAIAKD/exec';
+// ============================================================
+
+const PINS={ck:'1000',shop1:'1001',shop2:'1002',shop3:'1003',shop4:'1004',izakaya:'1005',accounting:'9999'};
+const RNAMES={ck:'セントラルキッチン',shop1:'本店',shop2:'ケルン店',shop3:'ビルク店',shop4:'エッセン店',izakaya:'居酒屋',accounting:'経理'};
+const SHOPS=['shop1','shop2','shop3','shop4','izakaya'];
+const SHOP_ORDER=['本店','ケルン店','ビルク店','エッセン店','居酒屋'];
+let role=null;
+const today=new Date();
+const fmt=d=>d.toISOString().split('T')[0];
+const addD=(d,n)=>{const r=new Date(d);r.setDate(r.getDate()+n);return r;};
+const diffD=(a,b)=>Math.round((new Date(a)-new Date(b))/86400000);
+const eur=v=>'€'+parseFloat(v).toFixed(2);
+const td=fmt(today);
+
+// ===== GAS API レイヤー =====
+const useGAS = () => GAS_URL !== '';
+
+async function gasCall(action, data={}) {
+  if (!useGAS()) return null;
+  try {
+    // GASはGETパラメータ経由が最も安定
+    const params = new URLSearchParams({
+      action,
+      data: JSON.stringify(data),
+    });
+    const res = await fetch(`${GAS_URL}?${params.toString()}`, {
+      method: 'GET',
+      redirect: 'follow',
+    });
+    const text = await res.text();
+    const json = JSON.parse(text);
+    if (!json.ok) throw new Error(json.error);
+    return json.result;
+  } catch(e) {
+    console.error('GAS Error:', e);
+    showToast('⚠ サーバーとの通信に失敗しました', true);
+    return null;
+  }
+}
+
+// 起動時にスプレッドシートから全データ読み込み
+async function loadFromGAS() {
+  if (!useGAS()) return;
+  showToast('📡 データを読み込み中...');
+  const result = await gasCall('getAll');
+  if (!result) return;
+  if (result.products?.length)   products   = result.products;
+  if (result.lots?.length)       lots       = result.lots;
+  if (result.orders?.length)     orders     = result.orders;
+  if (result.deliveries?.length) deliveries = result.deliveries;
+  if (result.messages?.length)   messages   = result.messages;
+  showToast('✅ データを読み込みました');
+}
+
+// トースト通知
+function showToast(msg, isError=false) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#222228;color:#f0f0f2;border:1px solid rgba(255,255,255,.14);padding:10px 20px;border-radius:8px;font-size:13px;z-index:9999;transition:opacity .3s;font-family:var(--font)';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.background = isError ? '#3a1a1a' : '#222228';
+  t.style.color = isError ? '#f05454' : '#f0f0f2';
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.style.opacity = '0', 2500);
+}
+
+// DDMM形式: 仕込み日から DD + MM
+function ddmm(dateStr){
+  const d=new Date(dateStr);
+  return String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0');
+}
+
+let products=[
+  {id:1,pouch:'#101TTMM',name:'からちゃん',vol:'2000g',unit:'パウチ',stor:'冷蔵/冷凍',minStock:3,price:15.00},
+  {id:2,pouch:'#102TTMM',name:'煮卵',vol:'30 st',unit:'パウチ',stor:'冷蔵',minStock:5,price:8.50},
+  {id:3,pouch:'N00#103TTMM',name:'チャーシュー',vol:'4〜5本',unit:'パウチ',stor:'冷凍',minStock:4,price:22.00},
+  {id:4,pouch:'#104TTMM',name:'味噌',vol:'2000g',unit:'パウチ',stor:'冷蔵',minStock:3,price:6.80},
+  {id:5,pouch:'#105TTMM',name:'丼たれ',vol:'2000g',unit:'パウチ',stor:'冷蔵',minStock:3,price:7.20},
+  {id:6,pouch:'#106TTMM',name:'ラー油',vol:'10L',unit:'本',stor:'常温',minStock:2,price:18.00},
+  {id:7,pouch:'#107TTMM',name:'坦々ミンチ',vol:'1000g',unit:'パウチ',stor:'冷凍',minStock:4,price:9.50},
+  {id:8,pouch:'#108TTMM',name:'醤油の返し',vol:'10L',unit:'韓国醤油ボトル',stor:'常温',minStock:2,price:12.00},
+  {id:9,pouch:'#109TTMM',name:'つけ麺',vol:'—',unit:'パウチ',stor:'冷蔵',minStock:3,price:5.00},
+  {id:10,pouch:'#110TTMM',name:'テンメンじゃん',vol:'—',unit:'パウチ',stor:'冷蔵',minStock:3,price:4.50},
+  {id:11,pouch:'#111TTMM',name:'柚子鶏',vol:'2000g',unit:'パウチ',stor:'冷凍',minStock:3,price:16.00},
+  {id:12,pouch:'#112TTMM',name:'餃子',vol:'冷凍',unit:'パウチ',stor:'冷凍',minStock:5,price:11.00},
+];
+
+// サンプルロット: ロット番号 = パウチのTTMMをDDMM(仕込み日)に置換
+let lots=[];
+let orders=[];
+let messages=[];
+let deliveries=[];
+let curDelId=null;
+
+// ===== HELPERS =====
+function lstatus(l){
+  if(l.rem<=0)return'depleted';
+  const d=diffD(l.expiry,td);
+  if(d<0)return'expired';if(d<=3)return'expiring';return'active';
+}
+function aLots(pid){
+  return lots.filter(l=>l.pid===pid&&(lstatus(l)==='active'||lstatus(l)==='expiring')&&l.rem>0)
+    .sort((a,b)=>a.mfgDate.localeCompare(b.mfgDate)); // 古い順（FIFO）
+}
+function stock(pid){return aLots(pid).reduce((s,l)=>s+l.rem,0);}
+function pById(id){return products.find(p=>p.id===id);}
+function pName(id){return(pById(id)||{name:'-'}).name;}
+function bstat(s){return{active:'<span class="badge bg">有効</span>',expiring:'<span class="badge ba">期限間近</span>',expired:'<span class="badge br">期限切れ</span>',depleted:'<span class="badge bp">使い切り</span>'}[s]||s;}
+function storTag(s){const c=s==='冷凍'?'stor-frz':s==='常温'?'stor-amb':'stor-ref';return`<span class="stor-tag ${c}">${s}</span>`;}
+function makeCode(p,dateStr){return p.pouch.replace('TTMM',ddmm(dateStr));}
+
+// ===== PIN =====
+function tryLogin(){
+  const r=document.getElementById('pin-role').value;
+  const pin=['p0','p1','p2','p3'].map(x=>document.getElementById(x).value).join('');
+  if(!r){document.getElementById('pin-err').textContent='ロールを選択してください';return;}
+  if(PINS[r]!==pin){document.getElementById('pin-err').textContent='PINが正しくありません';return;}
+  role=r;
+  document.getElementById('pin-screen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  initApp();
+}
+function logout(){role=null;document.getElementById('pin-screen').style.display='flex';document.getElementById('app').style.display='none';['p0','p1','p2','p3'].forEach(x=>document.getElementById(x).value='');document.getElementById('pin-err').textContent='';}
+document.querySelectorAll('.pin-d').forEach((el,i,arr)=>{
+  el.addEventListener('input',()=>{if(el.value&&i<arr.length-1)arr[i+1].focus();});
+  el.addEventListener('keydown',e=>{if(e.key==='Backspace'&&!el.value&&i>0)arr[i-1].focus();});
+});
+
+// ===== INIT =====
+function initApp(){
+  document.getElementById('sb-role').textContent=RNAMES[role];
+  document.getElementById('dash-role').textContent=RNAMES[role];
+  document.getElementById('dash-date').textContent=today.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+  const isCK=role==='ck', isAcc=role==='accounting';
+  const isCKorAcc = isCK||isAcc;
+  document.getElementById('snav-ck-sec').style.display=isCKorAcc?'block':'none';
+  document.getElementById('snav-acc-sec').style.display=isCKorAcc?'block':'none';
+  // 発注メニュー：経理は非表示
+  document.getElementById('snav-order-item').style.display=isAcc?'none':'flex';
+  document.querySelectorAll('.ck-only').forEach(el=>el.style.display=isCKorAcc?'flex':'none');
+  document.querySelectorAll('.acc-only').forEach(el=>el.style.display=isCKorAcc?'flex':'none');
+  // モバイル発注タブ：経理は非表示
+  document.querySelectorAll('.order-only').forEach(el=>el.style.display=isAcc?'none':'flex');
+  const msel=document.getElementById('mon-month');
+  msel.innerHTML='';
+  for(let i=0;i<6;i++){const d=new Date(today.getFullYear(),today.getMonth()-i,1);const val=fmt(d).substring(0,7);msel.innerHTML+=`<option value="${val}">${d.toLocaleDateString('ja-JP',{year:'numeric',month:'long'})}</option>`;}
+  renderDashboard();updateBadges();
+  // GAS接続時はスプレッドシートからデータ読み込み
+  loadFromGAS().then(()=>{
+    renderDashboard();updateBadges();
+  });
+}
+
+// ===== NAV =====
+function go(page,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-i,.mni').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelectorAll('.nav-i,.mni').forEach(n=>{if(n.getAttribute('onclick')&&n.getAttribute('onclick').includes("'"+page+"'"))n.classList.add('active');});
+  if(page==='dashboard')renderDashboard();
+  if(page==='order')renderOrder();
+  if(page==='messages')renderMessages();
+  if(page==='lot')renderLotPage();
+  if(page==='delivery')renderDelivery();
+  if(page==='master')renderMaster();
+  if(page==='monthly')renderMonthly();
+}
+function updateBadges(){
+  const cnt=orders.filter(o=>o.status==='pending').length;
+  const ob=document.getElementById('order-badge');ob.style.display=cnt>0?'inline':'none';ob.textContent=cnt;
+  if(SHOPS.includes(role)){const mb=document.getElementById('msg-badge');mb.style.display=messages.length>0?'inline':'none';}
+}
+
+// ===== DASHBOARD =====
+function renderDashboard(){
+  const low=products.filter(p=>stock(p.id)<p.minStock).length;
+  const exp=lots.filter(l=>lstatus(l)==='expiring').length;
+  const pend=orders.filter(o=>o.status==='pending').length;
+  document.getElementById('d-metrics').innerHTML=`
+    <div class="metric"><div class="metric-l">管理商品数</div><div class="metric-v">${products.length}</div></div>
+    <div class="metric"><div class="metric-l">在庫不足</div><div class="metric-v" style="color:${low>0?'var(--rd)':'var(--tx)'}">${low}</div><div class="metric-n">品目</div></div>
+    <div class="metric"><div class="metric-l">期限間近ロット</div><div class="metric-v" style="color:${exp>0?'var(--am)':'var(--tx)'}">${exp}</div><div class="metric-n">件</div></div>
+    <div class="metric"><div class="metric-l">処理待ち発注</div><div class="metric-v">${pend}</div><div class="metric-n">件</div></div>`;
+  let alerts='';
+  const lowP=products.filter(p=>stock(p.id)<p.minStock);
+  if(lowP.length>0)alerts+=`<div class="alert ar">⚠ 在庫不足: ${lowP.map(p=>p.name).join('、')}</div>`;
+  const expL=lots.filter(l=>lstatus(l)==='expiring');
+  if(expL.length>0)alerts+=`<div class="alert aw">⏰ 期限3日以内: ${[...new Set(expL.map(l=>pName(l.pid)))].join('、')}</div>`;
+  document.getElementById('d-alerts').innerHTML=alerts;
+  let invH='';
+  products.forEach(p=>{
+    const st=stock(p.id),pct=Math.min(100,Math.round(st/(p.minStock*4)*100));
+    const bc=st<p.minStock?'var(--rd)':st<p.minStock*2?'var(--am)':'var(--gr)';
+    const badge=st<p.minStock?'<span class="badge br">不足</span>':st<p.minStock*2?'<span class="badge ba">少ない</span>':'<span class="badge bg">良好</span>';
+    const al=aLots(p.id);const last=al.length>0?al[0].mfgDate:'-';
+    invH+=`<tr><td><span class="lc">${p.pouch}</span></td><td>${p.name}</td>
+      <td>${st}<span style="color:var(--tx3);font-size:11px"> ${p.unit}</span></td>
+      <td><div class="pw"><div class="pb" style="width:${pct}%;background:${bc}"></div></div></td>
+      <td>${badge}</td><td>${storTag(p.stor)}</td><td><span class="badge bb">${al.length}件</span></td></tr>`;
+  });
+  document.getElementById('d-inv').innerHTML=invH;
+  const expiring=lots.filter(l=>{const d=diffD(l.expiry,td);return d>=0&&d<=3&&l.rem>0;});
+  let expH=expiring.length===0?'<tr><td colspan="5" class="empty">期限間近のロットはありません</td></tr>':'';
+  expiring.forEach(l=>{const d=diffD(l.expiry,td);expH+=`<tr><td><span class="lc">${pById(l.pid)?.pouch||''}</span></td><td>${pName(l.pid)}</td><td>${l.rem}</td><td>${l.expiry}</td><td><span class="badge ba">${d===0?'今日':d+'日後'}</span></td></tr>`;});
+  document.getElementById('d-exp').innerHTML=expH;
+}
+
+// ===== ORDER =====
+function renderOrder(){
+  const isShop=SHOPS.includes(role);
+  document.getElementById('o-shop-view').style.display=isShop?'block':'none';
+  document.getElementById('o-ck-view').style.display=!isShop?'block':'none';
+  if(isShop){
+    document.getElementById('o-shopname').value=RNAMES[role];
+    document.getElementById('o-date').value=fmt(addD(today,1));
+    let h='';
+    products.forEach(p=>{
+      const al=aLots(p.id);
+      const li=al.length>0?`<span class="lc" style="font-size:11px">${al[0].code}</span>`:'<span style="color:var(--tx3);font-size:11px">なし</span>';
+      h+=`<tr><td><span class="lc">${p.pouch}</span></td><td>${p.name}</td><td style="color:var(--tx2)">${p.vol}</td>
+        <td>${stock(p.id)}<span style="color:var(--tx3);font-size:11px"> ${p.unit}</span></td>
+        <td><input class="qinp" type="number" min="0" value="0" id="oq-${p.id}"></td>
+        <td style="color:var(--tx2)">${eur(p.price)}</td><td>${li}</td></tr>`;
+    });
+    document.getElementById('o-items').innerHTML=h;
+  } else {renderCKOrders();}
+}
+let curShopTab='form';
+function shopOrderTab(tab,el){
+  curShopTab=tab;
+  document.querySelectorAll('#o-shop-view .tab').forEach(t=>t.classList.remove('active'));
+  if(el)el.classList.add('active');
+  document.getElementById('o-form-area').style.display=tab==='form'?'block':'none';
+  document.getElementById('o-history-area').style.display=tab==='history'?'block':'none';
+  if(tab==='history') renderShopHistory();
+}
+function renderShopHistory(){
+  const myOrders=[...orders].filter(o=>o.role===role).sort((a,b)=>b.at.localeCompare(a.at));
+  const html=myOrders.length===0?'<div class="empty">発注履歴はありません</div>':myOrders.map(o=>{
+    const total=o.items.reduce((s,i)=>{const p=pById(i.pid);return s+(p?p.price*i.qty:0);},0);
+    const inames=o.items.map(i=>`${pName(i.pid)} ×${i.qty}`).join('、');
+    const statusBadge=o.status==='delivered'?'<span class="badge bg">配送完了</span>':'<span class="badge bb">受付中</span>';
+    return`<div style="padding:13px;border-bottom:1px solid var(--bdr)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:5px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          ${statusBadge}
+          <span style="font-size:12px;color:var(--tx2)">納品日: <strong style="color:var(--tx)">${o.date}</strong></span>
+          <span style="font-size:11px;color:var(--tx3)">発注: ${o.at}</span>
+        </div>
+        <span style="font-size:13px;color:var(--tx2)">合計 <strong style="color:var(--tx)">${eur(total)}</strong></span>
+      </div>
+      <div style="font-size:12px;color:var(--tx2)">${inames}</div>
+      ${o.note?`<div style="margin-top:5px;font-size:12px;color:var(--am)">📝 ${o.note}</div>`:''}
+    </div>`;
+  }).join('');
+  document.getElementById('o-history-list').innerHTML=html;
+}
+function clearQty(){products.forEach(p=>{const e=document.getElementById('oq-'+p.id);if(e)e.value=0;});}
+function submitOrder(){
+  const date=document.getElementById('o-date').value;
+  if(!date){alert('納品日を入力してください');return;}
+  const items=[];
+  products.forEach(p=>{const v=parseInt(document.getElementById('oq-'+p.id).value)||0;if(v>0)items.push({pid:p.id,qty:v});});
+  if(!items.length){alert('発注数を入力してください');return;}
+  const note=document.getElementById('o-note').value.trim();
+  const newOrder={id:Date.now(),role,shop:RNAMES[role],date,items,note,status:'pending',at:td};
+  orders.push(newOrder);
+  gasCall('saveOrder', newOrder);
+  clearQty();document.getElementById('o-note').value='';
+  updateBadges();alert('発注を送信しました！');
+}
+let curOTab='pending';
+function oTab(tab,el){
+  curOTab=tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));if(el)el.classList.add('active');
+  document.getElementById('o-pending').style.display=tab==='pending'?'block':'none';
+  document.getElementById('o-done').style.display=tab==='done'?'block':'none';
+  renderCKOrders();
+}
+function renderCKOrders(){
+  const render=os=>os.map(o=>{
+    const total=o.items.reduce((s,i)=>{const p=pById(i.pid);return s+(p?p.price*i.qty:0);},0);
+    const inames=o.items.map(i=>`${pName(i.pid)} ×${i.qty}`).join('、');
+    return`<div style="padding:13px;border-bottom:1px solid var(--bdr)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px;flex-wrap:wrap">
+        <div>
+          <span style="font-weight:600">${o.shop}</span>
+          <span class="badge bb" style="margin-left:8px">${o.date} 納品</span>
+          <span style="font-size:11px;color:var(--tx3);margin-left:6px">受付: ${o.at}</span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:13px;color:var(--tx2)">合計 <strong style="color:var(--tx)">${eur(total)}</strong></span>
+          ${o.status==='pending'?`<button class="btn btn-sm btn-p" onclick="goSlip(${o.id})">伝票作成</button>`:'<span class="badge bg">配送完了</span>'}
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--tx2)">${inames}</div>
+      ${o.note?`<div style="margin-top:6px;font-size:12px;background:var(--sur2);border-radius:5px;padding:6px 10px;color:var(--tx2)">📝 備考: ${o.note}</div>`:''}
+    </div>`;
+  }).join('');
+  const pend=orders.filter(o=>o.status==='pending'),done=orders.filter(o=>o.status==='delivered');
+  document.getElementById('o-pending').innerHTML=pend.length?render(pend):'<div class="empty">受付中の発注はありません</div>';
+  document.getElementById('o-done').innerHTML=done.length?render(done):'<div class="empty">完了済みの発注はありません</div>';
+}
+
+// ===== MESSAGES =====
+function renderMessages(){
+  const isCK=role==='ck';
+  document.getElementById('msg-send-area').style.display=isCK?'block':'none';
+  document.getElementById('msg-ph-sub').textContent=isCK?'各店舗にお知らせを送信できます':'セントラルキッチンからのお知らせ';
+  document.getElementById('msg-inbox-title').textContent=isCK?'送信済みメッセージ':'受信メッセージ';
+  const msgs=isCK?messages:messages.filter(m=>m.to==='all'||m.to===role);
+  document.getElementById('msg-inbox').innerHTML=msgs.length===0?'<div class="empty">メッセージはありません</div>':
+    [...msgs].reverse().map(m=>`<div class="msg-bubble">
+      <div class="msg-from">${isCK?'送信先: '+(m.to==='all'?'全店舗':RNAMES[m.to]):'セントラルキッチンより'} 　<span style="font-weight:600;font-size:12px;color:var(--tx)">${m.subject}</span></div>
+      <div class="msg-body">${m.body}</div>
+      <div class="msg-time">${m.at}</div>
+    </div>`).join('');
+}
+function sendMessage(){
+  const to=document.getElementById('msg-to').value,sub=document.getElementById('msg-subject').value.trim(),body=document.getElementById('msg-body').value.trim();
+  if(!sub||!body){alert('件名とメッセージを入力してください');return;}
+  const now=new Date();
+  const newMsg={id:Date.now(),from:'ck',to,subject:sub,body,at:now.toLocaleDateString('ja-JP')+' '+now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})};
+  messages.push(newMsg);
+  gasCall('saveMessage', newMsg);
+  document.getElementById('msg-subject').value='';document.getElementById('msg-body').value='';
+  updateBadges();renderMessages();alert('送信しました');
+}
+
+// ===== LOT =====
+function showLotForm(show){
+  document.getElementById('lot-form-card').style.display=show?'block':'none';
+  if(show){
+    const sel=document.getElementById('lf-prod');
+    sel.innerHTML=products.map(p=>`<option value="${p.id}">${p.pouch} ${p.name}</option>`).join('');
+    document.getElementById('lf-date').value=td;
+    genCode();
+  }
+}
+function genCode(){
+  const pid=document.getElementById('lf-prod').value,d=document.getElementById('lf-date').value;
+  if(!pid||!d)return;
+  document.getElementById('lf-code').value=makeCode(pById(parseInt(pid)),d);
+}
+function regLot(){
+  const pid=parseInt(document.getElementById('lf-prod').value);
+  const d=document.getElementById('lf-date').value;
+  const qty=parseInt(document.getElementById('lf-qty').value);
+  const exp=document.getElementById('lf-exp').value;
+  if(!pid||!d||!qty||!exp){alert('全項目を入力してください');return;}
+  const p=pById(pid);
+  const code=makeCode(p,d);
+  const newLot={id:Date.now(),pid,code,mfgDate:d,expiry:exp,qty,rem:qty,memo:document.getElementById('lf-memo').value};
+  lots.push(newLot);
+  gasCall('saveLot', newLot);
+  showLotForm(false);renderLotPage();
+  alert(`ロット ${code} を登録しました`);
+}
+function renderLotPage(){showLotForm(false);renderLots();}
+
+function renderLots(){
+  const fs=document.getElementById('lf-fs').value;
+  const view=document.getElementById('lf-view').value;
+  let fl=[...lots];
+  if(fs)fl=fl.filter(l=>lstatus(l)===fs);
+
+  const rowHtml=l=>{
+    const p=pById(l.pid);
+    return`<tr>
+      <td><span class="lc">${l.code}</span></td>
+      <td>${p?.name||'-'}</td>
+      <td>${l.qty}</td><td>${l.rem}</td>
+      <td style="${diffD(l.expiry,td)<=3&&l.rem>0?'color:var(--am)':''}">${l.expiry}</td>
+      <td>${bstat(lstatus(l))}</td>
+      <td style="font-size:12px;color:var(--tx3)">${l.mfgDate}</td>
+      <td style="font-size:12px;color:var(--tx2)">${l.memo||'—'}</td>
+      <td><button class="btn btn-sm" onclick="openLotModal(${l.id})">編集</button></td>
+    </tr>`;
+  };
+
+  const thead=`<table><thead><tr><th>ロット番号</th><th>商品名</th><th>製造数</th><th>残数</th><th>消費期限</th><th>状態</th><th>仕込み日</th><th>メモ</th><th>編集</th></tr></thead>`;
+
+  if(view==='date'){
+    // 仕込み日の古い順
+    fl.sort((a,b)=>a.mfgDate.localeCompare(b.mfgDate));
+    const html=fl.length===0?'<div class="empty">該当なし</div>':
+      `<div class="tw">${thead}<tbody>${fl.map(rowHtml).join('')}</tbody></table></div>`;
+    document.getElementById('lot-list').innerHTML=html;
+  } else {
+    // 商品ごとにグループ + 各グループ内は古い順
+    if(fl.length===0){document.getElementById('lot-list').innerHTML='<div class="empty">該当なし</div>';return;}
+    let html='';
+    products.forEach(p=>{
+      const grp=fl.filter(l=>l.pid===p.id).sort((a,b)=>a.mfgDate.localeCompare(b.mfgDate));
+      if(!grp.length)return;
+      const st=stock(p.id);
+      const badge=st<p.minStock?'<span class="badge br">不足</span>':st<p.minStock*2?'<span class="badge ba">少ない</span>':'<span class="badge bg">良好</span>';
+      html+=`<div class="lot-group-hd">
+        <span class="lc">${p.pouch}</span>
+        <span style="font-size:12px;color:var(--tx)">${p.name}</span>
+        ${badge}
+        <span style="margin-left:auto;font-size:11px;color:var(--tx3)">計 ${grp.length}ロット ／ 在庫 ${st}${p.unit}</span>
+      </div>
+      <div class="tw">${thead}<tbody>${grp.map(rowHtml).join('')}</tbody></table></div>`;
+    });
+    document.getElementById('lot-list').innerHTML=html;
+  }
+}
+
+// ===== DELIVERY =====
+function renderDelivery(){
+  const pend=orders.filter(o=>o.status==='pending');
+  document.getElementById('del-list').innerHTML=pend.length===0?'<div class="empty">配送待ちの発注はありません</div>':
+    pend.map(o=>{
+      const total=o.items.reduce((s,i)=>{const p=pById(i.pid);return s+(p?p.price*i.qty:0);},0);
+      const inames=o.items.map(i=>`${pName(i.pid)} ×${i.qty}`).join('、');
+      return`<div style="padding:13px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:600">${o.shop} <span class="badge bb" style="margin-left:6px">${o.date}</span></div>
+          <div style="font-size:12px;color:var(--tx2);margin-top:4px">${inames}</div>
+          ${o.note?`<div style="font-size:11px;color:var(--am);margin-top:3px">📝 ${o.note}</div>`:''}
+          <div style="font-size:12px;color:var(--tx2);margin-top:3px">概算 <strong style="color:var(--tx)">${eur(total)}</strong></div>
+        </div>
+        <button class="btn btn-p btn-sm" onclick="createSlip(${o.id})">伝票作成</button>
+      </div>`;}).join('');
+  document.getElementById('slip-wrap').style.display='none';
+}
+function goSlip(id){go('delivery',null);setTimeout(()=>createSlip(id),60);}
+function createSlip(oid){
+  curDelId=oid;
+  const o=orders.find(x=>x.id===oid);if(!o)return;
+  const asn=o.items.map(item=>{
+    const al=aLots(item.pid);let need=item.qty;const used=[];
+    al.forEach(l=>{if(need<=0)return;const take=Math.min(l.rem,need);used.push({lot:l,take});need-=take;});
+    return{item,used,short:need};
+  });
+  const grand=asn.reduce((s,{item})=>{const p=pById(item.pid);return s+(p?p.price*item.qty:0);},0);
+  let h=`<div class="slip">
+    <div class="slip-hd">
+      <div>
+        <div style="font-size:16px;font-weight:700">配送伝票</div>
+        <div style="font-size:12px;color:var(--tx2);margin-top:4px">発行日: ${td}　店舗: ${o.shop}　納品日: ${o.date}</div>
+        ${o.note?`<div style="font-size:12px;color:var(--am);margin-top:4px">📝 備考: ${o.note}</div>`:''}
+      </div>
+      <div style="font-size:11px;color:var(--tx2);font-family:var(--mono)">No. CK-${String(oid).slice(-6)}</div>
+    </div>
+    <table>
+      <thead><tr><th>商品名</th><th>パウチ番号</th><th>発注数</th><th>割当ロット（古い順）</th><th>消費期限</th><th>単価(€)</th><th>金額(€)</th></tr></thead><tbody>`;
+  asn.forEach(({item,used,short})=>{
+    const p=pById(item.pid),lt=p?p.price*item.qty:0;
+    if(!used.length){
+      h+=`<tr><td>${p?.name}</td><td><span class="lc">${p?.pouch}</span></td><td>${item.qty}</td><td colspan="2"><span class="badge br">在庫不足</span></td><td>${eur(p?.price||0)}</td><td>—</td></tr>`;
+    } else {
+      const ll=used.map((u,i)=>`<div style="${i>0?'margin-top:2px':''}"><span class="lc">${u.lot.code}</span> <span style="color:var(--tx2)">×${u.take}</span></div>`).join('');
+      const el=used.map((u,i)=>`<div style="${i>0?'margin-top:2px':''}${diffD(u.lot.expiry,td)<=3?';color:var(--am)':''}">${u.lot.expiry}</div>`).join('');
+      h+=`<tr><td>${p?.name}</td><td><span class="lc">${p?.pouch}</span></td>
+        <td>${item.qty}<span style="font-size:11px;color:var(--tx3)"> ${p?.unit}</span></td>
+        <td>${ll}${short>0?`<div style="color:var(--rd);font-size:11px;margin-top:2px">⚠ ${short}${p?.unit}不足</div>`:''}</td>
+        <td>${el}</td><td>${eur(p?.price||0)}</td><td style="font-weight:600">${eur(lt)}</td></tr>`;
+    }
+  });
+  h+=`</tbody><tfoot><tr style="border-top:2px solid var(--bdr2)">
+    <td colspan="6" style="text-align:right;font-weight:600;padding:10px 11px">合計</td>
+    <td style="font-weight:700;font-size:18px;padding:10px 11px;color:var(--ac)">${eur(grand)}</td>
+  </tr></tfoot></table></div>`;
+  document.getElementById('slip-body').innerHTML=h;
+  document.getElementById('slip-wrap').style.display='block';
+  document.getElementById('slip-wrap').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function completeDelivery(){
+  const o=orders.find(x=>x.id===curDelId);if(!o)return;
+  const rec={id:Date.now(),shop:o.shop,date:o.date,items:[],at:td};
+  o.items.forEach(item=>{
+    const al=aLots(item.pid);let need=item.qty;const used=[];
+    al.forEach(l=>{if(need<=0)return;const take=Math.min(l.rem,need);l.rem-=take;need-=take;used.push({code:l.code,qty:take,exp:l.expiry});});
+    const p=pById(item.pid);
+    rec.items.push({pid:item.pid,qty:item.qty,price:p?.price||0,used});
+  });
+  deliveries.push(rec);o.status='delivered';
+  gasCall('saveDelivery', rec);
+  gasCall('updateOrderStatus', {id: o.id, status: 'delivered'});
+  document.getElementById('slip-wrap').style.display='none';
+  renderDelivery();updateBadges();alert('配送完了・在庫に反映しました');
+}
+
+// ===== MASTER =====
+function showProdForm(show){document.getElementById('prod-form').style.display=show?'block':'none';}
+function addProd(){
+  const pouch=document.getElementById('pf-pouch').value.trim(),name=document.getElementById('pf-name').value.trim();
+  const vol=document.getElementById('pf-vol').value.trim(),unit=document.getElementById('pf-unit').value.trim();
+  const stor=document.getElementById('pf-stor').value,minStock=parseInt(document.getElementById('pf-min').value)||0;
+  const price=parseFloat(document.getElementById('pf-price').value)||0;
+  if(!pouch||!name||!unit){alert('パウチ番号・商品名・単位は必須です');return;}
+  const newP={id:Date.now(),pouch,name,vol,unit,stor,minStock,price};
+  products.push(newP);
+  gasCall('saveProduct', newP);
+  showProdForm(false);renderMaster();
+}
+function renderMaster(){
+  document.getElementById('master-tbody').innerHTML=products.map(p=>`<tr>
+    <td><span class="lc">${p.pouch}</span></td>
+    <td style="font-weight:500">${p.name}</td>
+    <td style="color:var(--tx2)">${p.vol}</td>
+    <td>${storTag(p.stor)}</td>
+    <td>${p.minStock}</td><td>${stock(p.id)}</td>
+    <td><span class="eprice" onclick="editPrice(${p.id})">${eur(p.price)}</span></td>
+    <td style="display:flex;gap:5px">
+      <button class="btn btn-sm" onclick="openProdModal(${p.id})">編集</button>
+      <button class="btn btn-sm btn-rd" onclick="delProd(${p.id})">削除</button>
+    </td>
+  </tr>`).join('');
+}
+function editPrice(pid){
+  const p=pById(pid);const v=prompt(`【${p.name}】の単価（€）\n現在: ${p.price}`,p.price);
+  if(v===null)return;const n=parseFloat(v);if(isNaN(n)||n<0){alert('正しい金額を入力');return;}
+  p.price=n;
+  gasCall('saveProduct', p);
+  renderMaster();
+}
+function delProd(pid){if(!confirm('削除しますか？'))return;products=products.filter(p=>p.id!==pid);gasCall('deleteProduct',{id:pid});renderMaster();}
+
+// ===== MONTHLY =====
+function renderMonthly(){
+  const month=document.getElementById('mon-month').value;if(!month)return;
+  const[y,m]=month.split('-').map(Number);
+  const demo=[];
+  const all=[...demo,...deliveries.filter(d=>{const dt=new Date(d.date);return dt.getFullYear()===y&&dt.getMonth()+1===m;})];
+  all.sort((a,b)=>a.date.localeCompare(b.date));
+
+  let grandTotal=0;const shopMap={};
+  all.forEach(d=>d.items.forEach(i=>{
+    const lt=i.price*i.qty;grandTotal+=lt;
+    if(!shopMap[d.shop])shopMap[d.shop]={cnt:0,total:0};
+    shopMap[d.shop].cnt++;shopMap[d.shop].total+=lt;
+  }));
+
+  // メトリクス（2つだけ）
+  document.getElementById('mon-metrics').innerHTML=`
+    <div class="metric"><div class="metric-l">配送回数</div><div class="metric-v">${all.length}</div></div>
+    <div class="metric"><div class="metric-l">月次合計原価</div><div class="metric-v" style="font-size:20px;color:var(--ac)">${eur(grandTotal)}</div></div>`;
+
+  // 店舗別合計（シンプルテーブル）
+  document.getElementById('mon-shop-tbody').innerHTML=SHOP_ORDER.map(shop=>{
+    const d=shopMap[shop];
+    if(!d)return`<tr><td>${shop}</td><td style="color:var(--tx3)">—</td><td style="color:var(--tx3)">${eur(0)}</td></tr>`;
+    return`<tr><td style="font-weight:500">${shop}</td><td>${d.cnt}回</td><td style="font-weight:700;color:var(--ac)">${eur(d.total)}</td></tr>`;
+  }).join('')+`<tr style="border-top:2px solid var(--bdr2)">
+    <td colspan="2" style="text-align:right;font-weight:600;padding:10px 11px">合計</td>
+    <td style="font-weight:700;font-size:16px;padding:10px 11px;color:var(--ac)">${eur(grandTotal)}</td></tr>`;
+
+  // 明細（シンプル：ロット列なし）
+  let detail='';
+  all.forEach(d=>d.items.forEach(i=>{
+    const p=pById(i.pid);
+    detail+=`<tr>
+      <td style="font-size:12px;color:var(--tx2)">${d.date}</td>
+      <td>${d.shop}</td>
+      <td>${p?.name||`ID:${i.pid}`}</td>
+      <td>${i.qty}</td>
+      <td>${eur(i.price)}</td>
+      <td style="font-weight:600">${eur(i.price*i.qty)}</td>
+    </tr>`;
+  }));
+  document.getElementById('mon-detail').innerHTML=detail||'<tr><td colspan="6" class="empty">データなし</td></tr>';
+}
+
+// ===== 商品編集モーダル =====
+let editingProdId=null;
+function openProdModal(pid){
+  const p=pById(pid);if(!p)return;
+  editingProdId=pid;
+  document.getElementById('mp-pouch').value=p.pouch;
+  document.getElementById('mp-name').value=p.name;
+  document.getElementById('mp-vol').value=p.vol;
+  document.getElementById('mp-unit').value=p.unit;
+  document.getElementById('mp-stor').value=p.stor;
+  document.getElementById('mp-min').value=p.minStock;
+  document.getElementById('mp-price').value=p.price;
+  document.getElementById('modal-prod').style.display='flex';
+}
+function closeProdModal(){document.getElementById('modal-prod').style.display='none';editingProdId=null;}
+function saveProd(){
+  const p=pById(editingProdId);if(!p)return;
+  const pouch=document.getElementById('mp-pouch').value.trim();
+  const name=document.getElementById('mp-name').value.trim();
+  if(!pouch||!name){alert('パウチ番号と商品名は必須です');return;}
+  p.pouch=pouch;
+  p.name=name;
+  p.vol=document.getElementById('mp-vol').value.trim();
+  p.unit=document.getElementById('mp-unit').value.trim();
+  p.stor=document.getElementById('mp-stor').value;
+  p.minStock=parseInt(document.getElementById('mp-min').value)||0;
+  p.price=parseFloat(document.getElementById('mp-price').value)||0;
+  gasCall('saveProduct', p);
+  closeProdModal();renderMaster();
+  alert(`【${p.name}】を更新しました`);
+}
+function deleteProdFromModal(){
+  const p=pById(editingProdId);if(!p)return;
+  if(!confirm(`【${p.name}】を削除しますか？\n関連ロットは残ります。`))return;
+  products=products.filter(x=>x.id!==editingProdId);
+  gasCall('deleteProduct',{id:editingProdId});
+  closeProdModal();renderMaster();
+}
+
+// ===== ロット編集モーダル =====
+let editingLotId=null;
+function openLotModal(lid){
+  const l=lots.find(x=>x.id===lid);if(!l)return;
+  const p=pById(l.pid);
+  editingLotId=lid;
+  document.getElementById('ml-code').value=l.code;
+  document.getElementById('ml-prodname').value=p?.name||'-';
+  document.getElementById('ml-date').value=l.mfgDate;
+  document.getElementById('ml-qty').value=l.qty;
+  document.getElementById('ml-rem').value=l.rem;
+  document.getElementById('ml-exp').value=l.expiry;
+  document.getElementById('ml-memo').value=l.memo||'';
+  document.getElementById('modal-lot').style.display='flex';
+}
+function closeLotModal(){document.getElementById('modal-lot').style.display='none';editingLotId=null;}
+function saveLot(){
+  const l=lots.find(x=>x.id===editingLotId);if(!l)return;
+  const qty=parseInt(document.getElementById('ml-qty').value);
+  const rem=parseInt(document.getElementById('ml-rem').value);
+  const exp=document.getElementById('ml-exp').value;
+  if(!qty||!exp){alert('製造数量と消費期限は必須です');return;}
+  if(rem>qty){alert('残数が製造数量を超えています');return;}
+  l.qty=qty;l.rem=rem;l.expiry=exp;
+  l.memo=document.getElementById('ml-memo').value;
+  gasCall('updateLot', l);
+  closeLotModal();renderLots();
+  alert(`ロット【${l.code}】を更新しました`);
+}
+function deleteLotFromModal(){
+  const l=lots.find(x=>x.id===editingLotId);if(!l)return;
+  if(!confirm(`ロット【${l.code}】を削除しますか？`))return;
+  lots=lots.filter(x=>x.id!==editingLotId);
+  gasCall('deleteLot', {id: editingLotId});
+  closeLotModal();renderLots();
+}
+
+function exportCSV(){
+  const month=document.getElementById('mon-month').value;
+  const rows=[['日付','店舗','商品名','数量','単価EUR','金額EUR']];
+  document.querySelectorAll('#mon-detail tr').forEach(tr=>{
+    const cells=[...tr.querySelectorAll('td')].map(td=>td.textContent.replace(/,/g,'').trim());
+    if(cells.length>=6&&!cells[0].includes('合計'))rows.push(cells.slice(0,6));
+  });
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+rows.map(r=>r.join(',')).join('\n')],{type:'text/csv;charset=utf-8;'}));
+  a.download=`原価移動_${month}.csv`;a.click();
+}
+</script>
+</body>
+</html>

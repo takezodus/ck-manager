@@ -1264,7 +1264,7 @@ function completeDelivery(){
       al=aLots(item.pid);
     }
     let need=item.qty;const used=[];
-    al.forEach(l=>{if(need<=0)return;const take=Math.min(l.rem,need);l.rem-=take;need-=take;used.push({code:l.code,qty:take,exp:l.expiry});});
+    al.forEach(l=>{if(need<=0)return;const take=Math.min(l.rem,need);l.rem-=take;l._remChanged=true;need-=take;used.push({code:l.code,qty:take,exp:l.expiry});});
     const p=item.pid==='chaashu'?{price:22.00}:pById(item.pid);
     rec.items.push({pid:item.pid,qty:item.qty,price:p?.price||0,used,
       productName:item.pid==='chaashu'?'チャーシュー':undefined,
@@ -1273,6 +1273,10 @@ function completeDelivery(){
   deliveries.push(rec);o.status='delivered';
   gasCall('saveDelivery',rec);
   gasCall('updateOrderStatus',{id:o.id,status:'delivered'});
+  // ロット残数をGASに反映
+  const lotUpdates=lots.filter(l=>l._remChanged).map(l=>({id:l.id,rem:l.rem}));
+  lots.forEach(l=>delete l._remChanged);
+  if(lotUpdates.length>0) gasCall('updateLotRem',{updates:lotUpdates});
   printSlipForCK(rec,o);
   document.getElementById('slip-wrap').style.display='none';
   document.getElementById('temp-driver').value='';
@@ -1284,7 +1288,7 @@ function printSlipForCK(rec,o){
   const rows=rec.items.map(i=>{
     const p=pById(i.pid);
     const lotStr=(i.used||[]).map(u=>u.code).join(', ');
-    return`<tr><td>${p?.name||''}</td><td>${p?.pouch||''}</td><td>${i.qty}</td>
+    return`<tr><td>${p?.name||i.productName||''}</td><td>${i.qty}</td>
       <td>${lotStr}</td><td style="font-weight:600;color:#1a6b3c">${i.departTemp||'—'}℃</td><td>（店舗記入）</td></tr>`;
   }).join('');
   const win=window.open('','_blank');
@@ -1298,7 +1302,7 @@ function printSlipForCK(rec,o){
     @media print{button{display:none}}</style></head>
     <body><h2>温度記録票（セントラルキッチン控え）</h2>
     <p style="font-size:12px;color:#555;margin-bottom:16px">伝票No: <strong>${rec.slipNo}</strong>　店舗: <strong>${rec.shop}</strong>　納品日: <strong>${rec.date}</strong>　配送者: <strong>${rec.driver}</strong>　積み込み日時: <strong>${rec.at}</strong></p>
-    <table><thead><tr><th>商品名</th><th>パウチ番号</th><th>数量</th><th>ロット番号</th><th>積み込み温度</th><th>到着温度（店舗記入欄）</th></tr></thead>
+    <table><thead><tr><th>商品名</th><th>数量</th><th>ロット番号</th><th>積み込み温度</th><th>到着温度（店舗記入欄）</th></tr></thead>
     <tbody>${rows}</tbody></table>
     <div class="sig"><div class="sig-box">積み込み担当者サイン</div><div class="sig-box">確認者サイン</div></div>
     <button onclick="window.print()" style="margin-top:20px;padding:10px 24px;background:#1a73e8;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨 印刷する</button>

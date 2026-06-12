@@ -734,7 +734,8 @@ function ddmm(dateStr){
 let products=[
   {id:1,pouch:'#101TTMM',name:'からちゃん',vol:'2000g',unit:'パウチ',stor:'冷蔵/冷凍',minStock:3,price:15.00},
   {id:2,pouch:'#102TTMM',name:'煮卵',vol:'30 st',unit:'パウチ',stor:'冷蔵',minStock:5,price:8.50},
-  {id:3,pouch:'N00#103TTMM',name:'チャーシュー',vol:'4〜5本',unit:'パウチ',stor:'冷凍',minStock:4,price:22.00},
+  {id:3,pouch:'100#103TTMM',name:'チャーシュー(100)',vol:'4〜5本',unit:'パウチ',stor:'冷凍',minStock:4,price:22.00},
+  {id:13,pouch:'200#103TTMM',name:'チャーシュー(200)',vol:'4〜5本',unit:'パウチ',stor:'冷凍',minStock:4,price:22.00},
   {id:4,pouch:'#104TTMM',name:'味噌',vol:'2000g',unit:'パウチ',stor:'冷蔵',minStock:3,price:6.80},
   {id:5,pouch:'#105TTMM',name:'丼たれ',vol:'2000g',unit:'パウチ',stor:'冷蔵',minStock:3,price:7.20},
   {id:6,pouch:'#106TTMM',name:'ラー油',vol:'10L',unit:'本',stor:'常温',minStock:2,price:18.00},
@@ -766,7 +767,7 @@ function aLots(pid){
     .sort((a,b)=>a.mfgDate.localeCompare(b.mfgDate)); // 古い順（FIFO）
 }
 function stock(pid){return aLots(pid).reduce((s,l)=>s+l.rem,0);}
-function pById(id){return products.find(p=>p.id===id);}
+function pById(id){return products.find(p=>String(p.id)===String(id));}
 function pName(id){return(pById(id)||{name:'-'}).name;}
 function bstat(s){return{active:'<span class="badge bg">有効</span>',expiring:'<span class="badge ba">期限間近</span>',expired:'<span class="badge br">期限切れ</span>',depleted:'<span class="badge bp">使い切り</span>'}[s]||s;}
 function storTag(s){const c=s==='冷凍'?'stor-frz':s==='常温'?'stor-amb':'stor-ref';return`<span class="stor-tag ${c}">${s}</span>`;}
@@ -1208,9 +1209,10 @@ function renderTempPage(){
   document.getElementById('temp-pending-list').innerHTML=pending.length===0
     ?'<div class="empty">未記入の配送はありません</div>'
     :pending.map(d=>{
-      const itemRows=d.items.map(i=>{
+      const itemRows=(d.items||[]).map(i=>{
         const p=pById(i.pid);
-        return`<tr><td>${p?.name||''}</td>
+        const pname=p?.name||i.productName||`商品ID:${i.pid}`;
+        return`<tr><td>${pname}</td>
           <td style="color:#b45309;font-weight:600">${i.departTemp||'—'}℃</td>
           <td><input type="number" step="0.1" class="qinp" style="width:80px" id="arr-${d.id}-${i.pid}" placeholder="℃"></td></tr>`;
       }).join('');
@@ -1224,10 +1226,11 @@ function renderTempPage(){
   const myDeliveries=deliveries.filter(d=>d.shop===myShop);
   const tbody=myDeliveries.map(d=>{
     const tr=tempRecords[d.id];
-    const summary=d.items.map(i=>{
+    const summary=(d.items||[]).map(i=>{
       const p=pById(i.pid);
-      const arr=tr?tr.itemTemps?.[i.pid]||'—':'未記入';
-      return`${p?.name||''}: 出${i.departTemp||'—'}℃→着${arr}℃`;
+      const pname=p?.name||i.productName||`ID:${i.pid}`;
+      const arr=tr?tr.itemTemps?.[String(i.pid)]||'—':'未記入';
+      return`${pname}: 出${i.departTemp||'—'}℃→着${arr}℃`;
     }).join(' / ');
     return`<tr><td>${d.date}</td><td><span class="lc">${d.slipNo||'—'}</span></td>
       <td style="font-size:12px">${summary}</td>
@@ -1335,11 +1338,15 @@ function renderMonthly(){
   all.sort((a,b)=>a.date.localeCompare(b.date));
 
   let grandTotal=0;const shopMap={};
-  all.forEach(d=>d.items.forEach(i=>{
-    const lt=i.price*i.qty;grandTotal+=lt;
+  all.forEach(d=>{
     if(!shopMap[d.shop])shopMap[d.shop]={cnt:0,total:0};
-    shopMap[d.shop].cnt++;shopMap[d.shop].total+=lt;
-  }));
+    shopMap[d.shop].cnt++;
+    (d.items||[]).forEach(i=>{
+      const lt=(parseFloat(i.price)||0)*(parseFloat(i.qty)||0);
+      grandTotal+=lt;
+      shopMap[d.shop].total+=lt;
+    });
+  });
 
   // メトリクス（2つだけ）
   document.getElementById('mon-metrics').innerHTML=`
@@ -1357,15 +1364,17 @@ function renderMonthly(){
 
   // 明細（シンプル：ロット列なし）
   let detail='';
-  all.forEach(d=>d.items.forEach(i=>{
+  all.forEach(d=>(d.items||[]).forEach(i=>{
     const p=pById(i.pid);
+    const price=parseFloat(i.price)||0;
+    const qty=parseFloat(i.qty)||0;
     detail+=`<tr>
       <td style="font-size:12px;color:var(--tx2)">${d.date}</td>
       <td>${d.shop}</td>
-      <td>${p?.name||`ID:${i.pid}`}</td>
-      <td>${i.qty}</td>
-      <td>${eur(i.price)}</td>
-      <td style="font-weight:600">${eur(i.price*i.qty)}</td>
+      <td>${p?.name||i.productName||`商品ID:${i.pid}`}</td>
+      <td>${qty}</td>
+      <td>${eur(price)}</td>
+      <td style="font-weight:600">${eur(price*qty)}</td>
     </tr>`;
   }));
   // 店舗間移動（当月分）を追記

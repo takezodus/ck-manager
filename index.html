@@ -647,6 +647,39 @@ textarea.fi{resize:vertical;min-height:72px}
   </div>
 </div>
 
+<!-- 発注修正モーダル -->
+<div class="modal-overlay" id="modal-order-edit" style="display:none" onclick="if(event.target===this)closeOrderEditModal()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title">発注を修正</span>
+      <button class="modal-close" onclick="closeOrderEditModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--tx2);margin-bottom:14px">
+        ⚠ 修正できるのは「受付中」の発注のみです。変更内容は履歴に記録されます。
+      </div>
+      <div class="fg2" style="margin-bottom:14px">
+        <div class="fgrp"><label class="flbl">納品希望日</label><input class="fi" type="date" id="oe-date"></div>
+        <div class="fgrp"><label class="flbl">備考</label><input class="fi" id="oe-note"></div>
+      </div>
+      <div style="font-size:11px;color:var(--tx2);font-weight:500;margin-bottom:8px">発注数量</div>
+      <div class="tw"><table>
+        <thead><tr><th>商品名</th><th>現在の数</th><th>修正後の数</th></tr></thead>
+        <tbody id="oe-items-tbody"></tbody>
+      </table></div>
+      <!-- 変更履歴 -->
+      <div id="oe-history-wrap" style="margin-top:14px;display:none">
+        <div style="font-size:11px;color:var(--tx2);font-weight:500;margin-bottom:6px">変更履歴</div>
+        <div id="oe-history-list"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeOrderEditModal()">キャンセル</button>
+      <button class="btn btn-p" onclick="saveOrderEdit()">修正を保存</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // ★ GASデプロイ後にここにURLを貼り付けてください ★
@@ -884,6 +917,9 @@ function renderDashboard(){
 }
 
 // ===== ORDER =====
+// チャーシューは発注フォームで1行にまとめる（id:3と13を統合）
+const CHAASHU_IDS = [3, 13]; // 100#103, 200#103
+
 function renderOrder(){
   const isShop=SHOPS.includes(role);
   document.getElementById('o-shop-view').style.display=isShop?'block':'none';
@@ -892,7 +928,21 @@ function renderOrder(){
     document.getElementById('o-shopname').value=RNAMES[role];
     document.getElementById('o-date').value=fmt(addD(today,1));
     let h='';
+    let chaashuRendered=false;
     products.forEach(p=>{
+      // チャーシュー2種は1行にまとめる
+      if(CHAASHU_IDS.includes(p.id)){
+        if(chaashuRendered) return;
+        chaashuRendered=true;
+        const totalStock=CHAASHU_IDS.reduce((s,id)=>s+stock(id),0);
+        const al=aLots(3).concat(aLots(13)).sort((a,b)=>a.mfgDate.localeCompare(b.mfgDate));
+        const li=al.length>0?`<span class="lc" style="font-size:11px">${al[0].code}</span>`:'<span style="color:var(--tx3);font-size:11px">なし</span>';
+        h+=`<tr><td><span class="lc">#103TTMM</span></td><td>チャーシュー</td><td style="color:var(--tx2)">4〜5本</td>
+          <td>${totalStock}<span style="color:var(--tx3);font-size:11px"> パウチ</span></td>
+          <td><input class="qinp" type="number" min="0" value="0" id="oq-chaashu"></td>
+          <td style="color:var(--tx2)">${eur(p.price)}</td><td>${li}</td></tr>`;
+        return;
+      }
       const al=aLots(p.id);
       const li=al.length>0?`<span class="lc" style="font-size:11px">${al[0].code}</span>`:'<span style="color:var(--tx3);font-size:11px">なし</span>';
       h+=`<tr><td><span class="lc">${p.pouch}</span></td><td>${p.name}</td><td style="color:var(--tx2)">${p.vol}</td>
@@ -915,9 +965,18 @@ function shopOrderTab(tab,el){
 function renderShopHistory(){
   const myOrders=[...orders].filter(o=>o.role===role).sort((a,b)=>b.at.localeCompare(a.at));
   const html=myOrders.length===0?'<div class="empty">発注履歴はありません</div>':myOrders.map(o=>{
-    const total=o.items.reduce((s,i)=>{const p=pById(i.pid);return s+(p?p.price*i.qty:0);},0);
-    const inames=o.items.map(i=>`${pName(i.pid)} ×${i.qty}`).join('、');
+    const total=o.items.reduce((s,i)=>{
+      if(i.pid==='chaashu') return s+(22.00*i.qty);
+      const p=pById(i.pid);return s+(p?p.price*i.qty:0);
+    },0);
+    const inames=o.items.map(i=>i.pid==='chaashu'?`チャーシュー ×${i.qty}`:`${pName(i.pid)} ×${i.qty}`).join('、');
     const statusBadge=o.status==='delivered'?'<span class="badge bg">配送完了</span>':'<span class="badge bb">受付中</span>';
+    // 変更履歴があれば表示
+    const historyHtml=(o.editHistory||[]).map(h=>`
+      <div style="font-size:11px;color:var(--tx3);margin-top:4px;padding:5px 8px;background:var(--sur2);border-radius:4px">
+        ✏ ${h.at} 修正: ${h.changes.map(c=>`${c.name} ${c.before}→${c.after}`).join(' / ')}
+        ${h.note?` / 備考: ${h.note}`:''}
+      </div>`).join('');
     return`<div style="padding:13px;border-bottom:1px solid var(--bdr)">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:5px">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -925,25 +984,39 @@ function renderShopHistory(){
           <span style="font-size:12px;color:var(--tx2)">納品日: <strong style="color:var(--tx)">${o.date}</strong></span>
           <span style="font-size:11px;color:var(--tx3)">発注: ${o.at}</span>
         </div>
-        <span style="font-size:13px;color:var(--tx2)">合計 <strong style="color:var(--tx)">${eur(total)}</strong></span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;color:var(--tx2)">合計 <strong style="color:var(--tx)">${eur(total)}</strong></span>
+          ${o.status==='pending'?`<button class="btn btn-sm" onclick="openOrderEditModal(${o.id})">修正</button>`:''}
+        </div>
       </div>
       <div style="font-size:12px;color:var(--tx2)">${inames}</div>
       ${o.note?`<div style="margin-top:5px;font-size:12px;color:var(--am)">📝 ${o.note}</div>`:''}
+      ${historyHtml}
     </div>`;
   }).join('');
   document.getElementById('o-history-list').innerHTML=html;
 }
-function clearQty(){products.forEach(p=>{const e=document.getElementById('oq-'+p.id);if(e)e.value=0;});}
+function clearQty(){
+  products.forEach(p=>{const e=document.getElementById('oq-'+p.id);if(e)e.value=0;});
+  const ec=document.getElementById('oq-chaashu');if(ec)ec.value=0;
+}
 function submitOrder(){
   const date=document.getElementById('o-date').value;
   if(!date){alert('納品日を入力してください');return;}
   const items=[];
-  products.forEach(p=>{const v=parseInt(document.getElementById('oq-'+p.id).value)||0;if(v>0)items.push({pid:p.id,qty:v});});
+  products.forEach(p=>{
+    if(CHAASHU_IDS.includes(p.id)) return;
+    const v=parseInt(document.getElementById('oq-'+p.id)?.value)||0;
+    if(v>0)items.push({pid:p.id,qty:v});
+  });
+  // チャーシューは統合入力 → pidは'chaashu'でセントラルがロット割当時に使い分け
+  const cqty=parseInt(document.getElementById('oq-chaashu')?.value)||0;
+  if(cqty>0)items.push({pid:'chaashu',qty:cqty,productName:'チャーシュー'});
   if(!items.length){alert('発注数を入力してください');return;}
   const note=document.getElementById('o-note').value.trim();
   const newOrder={id:Date.now(),role,shop:RNAMES[role],date,items,note,status:'pending',at:td};
   orders.push(newOrder);
-  gasCall('saveOrder', newOrder);
+  gasCall('saveOrder',newOrder);
   clearQty();document.getElementById('o-note').value='';
   updateBadges();alert('発注を送信しました！');
 }
@@ -957,13 +1030,23 @@ function oTab(tab,el){
 }
 function renderCKOrders(){
   const render=os=>os.map(o=>{
-    const total=o.items.reduce((s,i)=>{const p=pById(i.pid);return s+(p?p.price*i.qty:0);},0);
-    const inames=o.items.map(i=>`${pName(i.pid)} ×${i.qty}`).join('、');
+    const total=o.items.reduce((s,i)=>{
+      if(i.pid==='chaashu') return s+(22.00*i.qty);
+      const p=pById(i.pid);return s+(p?p.price*i.qty:0);
+    },0);
+    const inames=o.items.map(i=>i.pid==='chaashu'?`チャーシュー ×${i.qty}`:`${pName(i.pid)} ×${i.qty}`).join('、');
+    const editBadge=(o.editHistory&&o.editHistory.length>0)
+      ?`<span class="badge ba" style="font-size:10px">✏ ${o.editHistory.length}回修正</span>`:'';
+    const lastEdit=o.editHistory?.slice(-1)[0];
+    const editDetail=lastEdit?`<div style="font-size:11px;color:var(--am);margin-top:3px">
+      最終修正: ${lastEdit.at} — ${lastEdit.changes.map(c=>`${c.name} ${c.before}→${c.after}`).join(' / ')}
+    </div>`:'';
     return`<div style="padding:13px;border-bottom:1px solid var(--bdr)">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px;flex-wrap:wrap">
         <div>
           <span style="font-weight:600">${o.shop}</span>
           <span class="badge bb" style="margin-left:8px">${o.date} 納品</span>
+          ${editBadge}
           <span style="font-size:11px;color:var(--tx3);margin-left:6px">受付: ${o.at}</span>
         </div>
         <div style="display:flex;gap:6px;align-items:center">
@@ -973,6 +1056,7 @@ function renderCKOrders(){
       </div>
       <div style="font-size:12px;color:var(--tx2)">${inames}</div>
       ${o.note?`<div style="margin-top:6px;font-size:12px;background:var(--sur2);border-radius:5px;padding:6px 10px;color:var(--tx2)">📝 備考: ${o.note}</div>`:''}
+      ${editDetail}
     </div>`;
   }).join('');
   const pend=orders.filter(o=>o.status==='pending'),done=orders.filter(o=>o.status==='delivered');
@@ -1090,8 +1174,11 @@ function renderDelivery(){
   const pend=orders.filter(o=>o.status==='pending');
   document.getElementById('del-list').innerHTML=pend.length===0?'<div class="empty">配送待ちの発注はありません</div>':
     pend.map(o=>{
-      const total=o.items.reduce((s,i)=>{const p=pById(i.pid);return s+(p?p.price*i.qty:0);},0);
-      const inames=o.items.map(i=>`${pName(i.pid)} ×${i.qty}`).join('、');
+      const total=o.items.reduce((s,i)=>{
+        if(i.pid==='chaashu') return s+(22.00*i.qty);
+        const p=pById(i.pid);return s+(p?p.price*i.qty:0);
+      },0);
+      const inames=o.items.map(i=>i.pid==='chaashu'?`チャーシュー ×${i.qty}`:`${pName(i.pid)} ×${i.qty}`).join('、');
       return`<div style="padding:13px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
         <div>
           <div style="font-weight:600">${o.shop} <span class="badge bb" style="margin-left:6px">${o.date}</span></div>
@@ -1108,6 +1195,13 @@ function createSlip(oid){
   curDelId=oid;
   const o=orders.find(x=>x.id===oid);if(!o)return;
   const asn=o.items.map(item=>{
+    // チャーシューは100#103と200#103両方のロットを合わせてFIFO
+    if(item.pid==='chaashu'){
+      const al=[...aLots(3),...aLots(13)].sort((a,b)=>a.mfgDate.localeCompare(b.mfgDate));
+      let need=item.qty;const used=[];
+      al.forEach(l=>{if(need<=0)return;const take=Math.min(l.rem,need);used.push({lot:l,take});need-=take;});
+      return{item:{...item,pid:'chaashu',productName:'チャーシュー'},used,short:need,isChaashu:true};
+    }
     const al=aLots(item.pid);let need=item.qty;const used=[];
     al.forEach(l=>{if(need<=0)return;const take=Math.min(l.rem,need);used.push({lot:l,take});need-=take;});
     return{item,used,short:need};
@@ -1125,8 +1219,9 @@ function createSlip(oid){
     </div>
     <table>
       <thead><tr><th>商品名</th><th>パウチ番号</th><th>発注数</th><th>割当ロット</th><th>消費期限</th><th>単価(€)</th><th>金額(€)</th><th style="color:var(--am)">積み込み温度(℃)</th></tr></thead><tbody>`;
-  asn.forEach(({item,used,short})=>{
-    const p=pById(item.pid),lt=p?p.price*item.qty:0;
+  asn.forEach(({item,used,short,isChaashu})=>{
+    const p=isChaashu?{name:'チャーシュー',pouch:'#103TTMM',price:22.00,unit:'パウチ'}:pById(item.pid);
+    const lt=p?p.price*item.qty:0;
     const tempInput=`<input type="number" step="0.1" class="qinp" style="width:72px" id="dt-${item.pid}" placeholder="℃">`;
     if(!used.length){
       h+=`<tr><td>${p?.name}</td><td><span class="lc">${p?.pouch}</span></td><td>${item.qty}</td>
@@ -1162,10 +1257,18 @@ function completeDelivery(){
   });
   const rec={id:Date.now(),shop:o.shop,date:o.date,items:[],at:td,driver:driver||'—',slipNo,itemTemps};
   o.items.forEach(item=>{
-    const al=aLots(item.pid);let need=item.qty;const used=[];
+    let al;
+    if(item.pid==='chaashu'){
+      al=[...aLots(3),...aLots(13)].sort((a,b)=>a.mfgDate.localeCompare(b.mfgDate));
+    } else {
+      al=aLots(item.pid);
+    }
+    let need=item.qty;const used=[];
     al.forEach(l=>{if(need<=0)return;const take=Math.min(l.rem,need);l.rem-=take;need-=take;used.push({code:l.code,qty:take,exp:l.expiry});});
-    const p=pById(item.pid);
-    rec.items.push({pid:item.pid,qty:item.qty,price:p?.price||0,used,departTemp:itemTemps[item.pid]||'—'});
+    const p=item.pid==='chaashu'?{price:22.00}:pById(item.pid);
+    rec.items.push({pid:item.pid,qty:item.qty,price:p?.price||0,used,
+      productName:item.pid==='chaashu'?'チャーシュー':undefined,
+      departTemp:itemTemps[item.pid]||'—'});
   });
   deliveries.push(rec);o.status='delivered';
   gasCall('saveDelivery',rec);
@@ -1466,6 +1569,84 @@ function deleteLotFromModal(){
   lots=lots.filter(x=>x.id!==editingLotId);
   gasCall('deleteLot', {id: editingLotId});
   closeLotModal();renderLots();
+}
+
+// ===== 発注修正モーダル =====
+let editingOrderId=null;
+function openOrderEditModal(oid){
+  const o=orders.find(x=>x.id===oid);
+  if(!o||o.status!=='pending'){alert('受付中の発注のみ修正できます');return;}
+  editingOrderId=oid;
+  document.getElementById('oe-date').value=o.date;
+  document.getElementById('oe-note').value=o.note||'';
+  // 数量テーブル
+  let rows='';
+  o.items.forEach(i=>{
+    const name=i.pid==='chaashu'?'チャーシュー':pName(i.pid);
+    rows+=`<tr>
+      <td>${name}</td>
+      <td style="font-weight:600">${i.qty}</td>
+      <td><input type="number" min="0" class="qinp" style="width:70px" id="oe-qty-${i.pid}" value="${i.qty}"></td>
+    </tr>`;
+  });
+  document.getElementById('oe-items-tbody').innerHTML=rows;
+  // 変更履歴
+  const hist=o.editHistory||[];
+  const hw=document.getElementById('oe-history-wrap');
+  const hl=document.getElementById('oe-history-list');
+  if(hist.length>0){
+    hw.style.display='block';
+    hl.innerHTML=hist.map(h=>`<div style="font-size:12px;padding:6px 8px;background:var(--sur2);border-radius:4px;margin-bottom:5px">
+      <span style="color:var(--tx3);font-size:11px">${h.at}</span><br>
+      ${h.changes.map(c=>`<span style="color:var(--am)">${c.name}</span>: ${c.before} → <strong>${c.after}</strong>`).join('　')}
+      ${h.note?`<br><span style="color:var(--tx2);font-size:11px">備考: ${h.note}</span>`:''}
+    </div>`).join('');
+  } else { hw.style.display='none'; }
+  document.getElementById('modal-order-edit').style.display='flex';
+}
+function closeOrderEditModal(){
+  document.getElementById('modal-order-edit').style.display='none';
+  editingOrderId=null;
+}
+function saveOrderEdit(){
+  const o=orders.find(x=>x.id===editingOrderId);if(!o)return;
+  const newDate=document.getElementById('oe-date').value;
+  const newNote=document.getElementById('oe-note').value.trim();
+  const changes=[];
+  // 数量変更を検出
+  o.items.forEach(i=>{
+    const el=document.getElementById('oe-qty-'+i.pid);
+    if(!el)return;
+    const newQty=parseInt(el.value)||0;
+    if(newQty!==i.qty){
+      const name=i.pid==='chaashu'?'チャーシュー':pName(i.pid);
+      changes.push({name,before:i.qty,after:newQty,pid:i.pid});
+      i.qty=newQty; // 数量更新
+    }
+  });
+  // 日付変更
+  if(newDate!==o.date) changes.push({name:'納品日',before:o.date,after:newDate});
+  // 備考変更
+  if(newNote!==o.note) changes.push({name:'備考',before:o.note||'なし',after:newNote||'なし'});
+
+  if(changes.length===0){alert('変更がありません');return;}
+
+  // 変更履歴に追記
+  const now=new Date();
+  const at=now.toLocaleDateString('ja-JP')+' '+now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+  if(!o.editHistory) o.editHistory=[];
+  o.editHistory.push({at,changes,note:newNote});
+  o.date=newDate;
+  o.note=newNote;
+
+  // GASに保存
+  gasCall('updateOrder',{id:o.id,date:o.date,note:o.note,items:o.items,editHistory:o.editHistory});
+
+  closeOrderEditModal();
+  renderShopHistory();
+  // CK側にも反映
+  renderCKOrders();
+  alert(`修正を保存しました（${changes.length}件の変更）`);
 }
 
 function exportCSV(){

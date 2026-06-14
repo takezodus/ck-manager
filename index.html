@@ -748,7 +748,13 @@ async function loadFromGAS() {
   if (result.products?.length)   products   = result.products;
   if (result.lots?.length)       lots       = result.lots;
   if (result.orders?.length)     orders     = result.orders;
-  if (result.deliveries?.length) deliveries = result.deliveries;
+  if (result.deliveries?.length){
+    // itemsが空の場合はdeliveriesItemsフィールドを使う
+    deliveries = result.deliveries.map(d=>({
+      ...d,
+      items: Array.isArray(d.items) && d.items.length > 0 ? d.items : (d.deliveriesItems||[]),
+    }));
+  }
   if (result.transfers?.length)  transfers  = result.transfers;
   if (result.tempRecords)        tempRecords= result.tempRecords;
   if (result.messages?.length)   messages   = result.messages;

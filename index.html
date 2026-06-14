@@ -423,65 +423,79 @@ textarea.fi{resize:vertical;min-height:72px}
   <div id="page-delivery" class="page">
     <div class="ph"><div><div class="ph-title">配送・伝票作成</div></div></div>
     <div class="pc">
-      <div class="card">
-        <div class="ch"><span class="ct">配送待ち発注</span></div>
-        <div id="del-list" class="cb"></div>
+      <div class="tabs">
+        <div class="tab active" onclick="deliveryTab('pending',this)">配送待ち</div>
+        <div class="tab" onclick="deliveryTab('history',this)">配送履歴・再印刷</div>
+        <div class="tab" onclick="deliveryTab('transfer',this)">店舗間移動</div>
       </div>
-      <div id="slip-wrap" style="display:none">
+      <!-- 配送待ち -->
+      <div id="del-pending-area">
         <div class="card">
-          <div class="ch">
-            <span class="ct">配送伝票</span>
-            <div style="display:flex;gap:7px">
-              <button class="btn btn-sm" onclick="window.print()">印刷</button>
-              <button class="btn btn-sm btn-p" onclick="completeDelivery()">配送完了・在庫反映</button>
-            </div>
-          </div>
-          <div class="cb">
-            <!-- 出発時温度入力 -->
-            <div style="background:var(--sur2);border:1px solid var(--bdr2);border-radius:var(--rsm);padding:14px;margin-bottom:14px">
-              <div style="font-size:12px;font-weight:600;color:var(--am);margin-bottom:10px">🌡 温度記録（出発時 — セントラル記入）</div>
-              <div class="fg2">
-                <div class="fgrp"><label class="flbl">出発時温度（℃）</label><input class="fi" type="number" step="0.1" id="temp-depart" placeholder="例: 3.5"></div>
-                <div class="fgrp"><label class="flbl">配送者名</label><input class="fi" id="temp-driver" placeholder="例: 田中"></div>
+          <div class="ch"><span class="ct">配送待ち発注</span></div>
+          <div id="del-list" class="cb"></div>
+        </div>
+        <div id="slip-wrap" style="display:none">
+          <div class="card">
+            <div class="ch">
+              <span class="ct">配送伝票</span>
+              <div style="display:flex;gap:7px">
+                <button class="btn btn-sm" onclick="window.print()">印刷</button>
+                <button class="btn btn-sm btn-p" onclick="completeDelivery()">配送完了・在庫反映</button>
               </div>
             </div>
-            <div id="slip-body"></div>
+            <div class="cb">
+              <div style="background:var(--sur2);border:1px solid var(--bdr2);border-radius:var(--rsm);padding:14px;margin-bottom:14px">
+                <div style="font-size:12px;font-weight:600;color:var(--am);margin-bottom:10px">🌡 温度記録（積み込み時 — セントラル記入）</div>
+                <div class="fg2">
+                  <div class="fgrp"><label class="flbl">配送者名</label><input class="fi" id="temp-driver" placeholder="例: 田中"></div>
+                </div>
+              </div>
+              <div id="slip-body"></div>
+            </div>
           </div>
         </div>
       </div>
-
-      <!-- 店舗間移動（鶏油など） -->
-      <div class="card" id="transfer-card">
-        <div class="ch"><span class="ct">店舗間原価移動（鶏油など）</span></div>
-        <div class="cb">
-          <div style="font-size:12px;color:var(--tx2);margin-bottom:12px">ケルン店製造品をセントラルへ移動する際に記録します</div>
-          <div class="fg3">
-            <div class="fgrp"><label class="flbl">商品</label>
-              <select class="fi" id="tr-product"></select>
+      <!-- 配送履歴 -->
+      <div id="del-history-area" style="display:none">
+        <div class="card">
+          <div class="ch"><span class="ct">配送履歴（クリックで伝票再印刷）</span></div>
+          <div class="tw"><table>
+            <thead><tr><th>納品日</th><th>伝票No.</th><th>店舗</th><th>合計(€)</th><th>配送者</th><th>再印刷</th></tr></thead>
+            <tbody id="del-history-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+      <!-- 店舗間移動 -->
+      <div id="del-transfer-area" style="display:none">
+        <div class="card">
+          <div class="ch"><span class="ct">店舗間原価移動（鶏油など）</span></div>
+          <div class="cb">
+            <div style="font-size:12px;color:var(--tx2);margin-bottom:12px">全店舗間の原価移動を記録します</div>
+            <div class="fg3">
+              <div class="fgrp"><label class="flbl">商品</label>
+                <select class="fi" id="tr-product"></select>
+              </div>
+              <div class="fgrp"><label class="flbl">数量</label><input class="fi" type="number" id="tr-qty" placeholder="例: 5"></div>
+              <div class="fgrp"><label class="flbl">移動日</label><input class="fi" type="date" id="tr-date"></div>
             </div>
-            <div class="fgrp"><label class="flbl">数量</label><input class="fi" type="number" id="tr-qty" placeholder="例: 5"></div>
-            <div class="fgrp"><label class="flbl">移動日</label><input class="fi" type="date" id="tr-date"></div>
+            <div class="fg2">
+              <div class="fgrp"><label class="flbl">送り出し元</label>
+                <select class="fi" id="tr-from"></select>
+              </div>
+              <div class="fgrp"><label class="flbl">受け取り先</label>
+                <select class="fi" id="tr-to"></select>
+              </div>
+            </div>
+            <div class="fgrp" style="margin-bottom:12px"><label class="flbl">備考（任意）</label><input class="fi" id="tr-note" placeholder="例: ロット番号 #1130604"></div>
+            <div class="factions"><button class="btn btn-p" onclick="submitTransfer()">移動を記録</button></div>
           </div>
-          <div class="fg2">
-            <div class="fgrp"><label class="flbl">送り出し元</label>
-              <select class="fi" id="tr-from">
-                <option value="ケルン店">ケルン店</option>
-                <option value="セントラルキッチン">セントラルキッチン</option>
-              </select>
-            </div>
-            <div class="fgrp"><label class="flbl">受け取り先</label>
-              <select class="fi" id="tr-to">
-                <option value="セントラルキッチン">セントラルキッチン</option>
-                <option value="本店">本店</option>
-                <option value="ケルン店">ケルン店</option>
-                <option value="ビルク店">ビルク店</option>
-                <option value="エッセン店">エッセン店</option>
-                <option value="居酒屋">居酒屋</option>
-              </select>
-            </div>
-          </div>
-          <div class="fgrp" style="margin-bottom:12px"><label class="flbl">備考（任意）</label><input class="fi" id="tr-note" placeholder="例: ロット番号 #1130604"></div>
-          <div class="factions"><button class="btn btn-p" onclick="submitTransfer()">移動を記録</button></div>
+        </div>
+        <div class="card" id="transfer-history-card">
+          <div class="ch"><span class="ct">移動履歴</span></div>
+          <div class="tw"><table>
+            <thead><tr><th>日付</th><th>商品</th><th>数量</th><th>移動元</th><th>移動先</th><th>金額(€)</th></tr></thead>
+            <tbody id="transfer-history-tbody"></tbody>
+          </table></div>
         </div>
       </div>
     </div>
@@ -501,7 +515,7 @@ textarea.fi{resize:vertical;min-height:72px}
           <button class="btn btn-sm" onclick="printTempHistory()">印刷・提出用</button>
         </div>
         <div class="tw"><table>
-          <thead><tr><th>納品日</th><th>伝票No.</th><th>出発温度</th><th>到着温度</th><th>配送者</th><th>記録日時</th></tr></thead>
+          <thead><tr><th>納品日</th><th>伝票No.</th><th>状態</th><th>記録日時</th><th>印刷</th></tr></thead>
           <tbody id="temp-history-tbody"></tbody>
         </table></div>
       </div>
@@ -848,9 +862,9 @@ function initApp(){
   document.querySelectorAll('.acc-only').forEach(el=>el.style.display=isCKorAcc?'flex':'none');
   document.querySelectorAll('.order-only').forEach(el=>el.style.display=isAcc?'none':'flex');
   document.querySelectorAll('.shop-only').forEach(el=>el.style.display=isShop?'flex':'none');
-  // 店舗間移動カードはCKのみ
-  const tc=document.getElementById('transfer-card');
-  if(tc) tc.style.display=isCK?'block':'none';
+  // 店舗間移動タブはCKのみ表示
+  const transferTab=document.querySelector('#page-delivery .tab:nth-child(3)');
+  if(transferTab) transferTab.style.display=isCK?'flex':'none';
   const msel=document.getElementById('mon-month');
   msel.innerHTML='';
   for(let i=0;i<6;i++){const d=new Date(today.getFullYear(),today.getMonth()-i,1);const val=fmt(d).substring(0,7);msel.innerHTML+=`<option value="${val}">${d.toLocaleDateString('ja-JP',{year:'numeric',month:'long'})}</option>`;}
@@ -871,7 +885,12 @@ function go(page,el){
   if(page==='order')renderOrder();
   if(page==='messages')renderMessages();
   if(page==='lot')renderLotPage();
-  if(page==='delivery'){renderDelivery();renderTransferProduct();}
+  if(page==='delivery'){
+    // タブをリセットして配送待ちを表示
+    deliveryTab('pending',null);
+    document.querySelectorAll('#page-delivery .tab').forEach((t,i)=>{t.classList.toggle('active',i===0);});
+    renderDelivery();
+  }
   if(page==='temp')renderTempPage();
   if(page==='master')renderMaster();
   if(page==='monthly')renderMonthly();
@@ -879,7 +898,19 @@ function go(page,el){
 function updateBadges(){
   const cnt=orders.filter(o=>o.status==='pending').length;
   const ob=document.getElementById('order-badge');ob.style.display=cnt>0?'inline':'none';ob.textContent=cnt;
-  if(SHOPS.includes(role)){const mb=document.getElementById('msg-badge');mb.style.display=messages.length>0?'inline':'none';}
+  if(SHOPS.includes(role)){
+    const readIds=JSON.parse(localStorage.getItem('readMsgs_'+role)||'[]');
+    const myMsgs=messages.filter(m=>m.to==='all'||m.to===role);
+    const unread=myMsgs.filter(m=>!readIds.includes(String(m.id)));
+    const mb=document.getElementById('msg-badge');
+    if(mb) mb.style.display=unread.length>0?'inline':'none';
+  }
+  if(SHOPS.includes(role)){
+    const myShop=RNAMES[role];
+    const pending=deliveries.filter(d=>d.shop===myShop&&!tempRecords[d.id]);
+    const tb=document.getElementById('temp-badge');
+    if(tb) tb.style.display=pending.length>0?'inline':'none';
+  }
 }
 
 // ===== DASHBOARD =====
@@ -1071,12 +1102,25 @@ function renderMessages(){
   document.getElementById('msg-ph-sub').textContent=isCK?'各店舗にお知らせを送信できます':'セントラルキッチンからのお知らせ';
   document.getElementById('msg-inbox-title').textContent=isCK?'送信済みメッセージ':'受信メッセージ';
   const msgs=isCK?messages:messages.filter(m=>m.to==='all'||m.to===role);
+  const readIds=JSON.parse(localStorage.getItem('readMsgs_'+role)||'[]');
   document.getElementById('msg-inbox').innerHTML=msgs.length===0?'<div class="empty">メッセージはありません</div>':
-    [...msgs].reverse().map(m=>`<div class="msg-bubble">
-      <div class="msg-from">${isCK?'送信先: '+(m.to==='all'?'全店舗':RNAMES[m.to]):'セントラルキッチンより'} 　<span style="font-weight:600;font-size:12px;color:var(--tx)">${m.subject}</span></div>
-      <div class="msg-body">${m.body}</div>
-      <div class="msg-time">${m.at}</div>
-    </div>`).join('');
+    [...msgs].reverse().map(m=>{
+      const isRead=isCK||readIds.includes(String(m.id));
+      return`<div class="msg-bubble" style="${!isRead?'border-color:var(--ac);':''}">
+        <div class="msg-from" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+          <span>${isCK?'送信先: '+(m.to==='all'?'全店舗':RNAMES[m.to]):'セントラルキッチンより'} 　<span style="font-weight:600;font-size:12px;color:var(--tx)">${m.subject}</span></span>
+          ${!isRead?`<button class="btn btn-sm" style="font-size:11px;padding:3px 10px" onclick="markRead(${m.id})">✓ 確認済み</button>`:'<span style="font-size:11px;color:var(--tx3)">✓ 確認済み</span>'}
+        </div>
+        <div class="msg-body">${m.body}</div>
+        <div class="msg-time">${m.at}</div>
+      </div>`;
+    }).join('');
+}
+function markRead(msgId){
+  const readIds=JSON.parse(localStorage.getItem('readMsgs_'+role)||'[]');
+  if(!readIds.includes(String(msgId))) readIds.push(String(msgId));
+  localStorage.setItem('readMsgs_'+role, JSON.stringify(readIds));
+  updateBadges();renderMessages();
 }
 function sendMessage(){
   const to=document.getElementById('msg-to').value,sub=document.getElementById('msg-subject').value.trim(),body=document.getElementById('msg-body').value.trim();
@@ -1170,6 +1214,18 @@ function renderLots(){
 }
 
 // ===== DELIVERY =====
+let curDeliveryTab='pending';
+function deliveryTab(tab,el){
+  curDeliveryTab=tab;
+  document.querySelectorAll('#page-delivery .tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  document.getElementById('del-pending-area').style.display=tab==='pending'?'block':'none';
+  document.getElementById('del-history-area').style.display=tab==='history'?'block':'none';
+  document.getElementById('del-transfer-area').style.display=tab==='transfer'?'block':'none';
+  if(tab==='history') renderDeliveryHistory();
+  if(tab==='transfer') renderTransferProduct();
+}
+
 function renderDelivery(){
   const pend=orders.filter(o=>o.status==='pending');
   document.getElementById('del-list').innerHTML=pend.length===0?'<div class="empty">配送待ちの発注はありません</div>':
@@ -1179,16 +1235,73 @@ function renderDelivery(){
         const p=pById(i.pid);return s+(p?p.price*i.qty:0);
       },0);
       const inames=o.items.map(i=>i.pid==='chaashu'?`チャーシュー ×${i.qty}`:`${pName(i.pid)} ×${i.qty}`).join('、');
+      const editBadge=(o.editHistory&&o.editHistory.length>0)?`<span class="badge ba" style="font-size:10px;margin-left:6px">✏ ${o.editHistory.length}回修正</span>`:'';
+      const lastEdit=o.editHistory?.slice(-1)[0];
+      const editDetail=lastEdit?`<div style="font-size:11px;color:var(--am);margin-top:3px">最終修正: ${lastEdit.at} — ${lastEdit.changes.map(c=>`${c.name} ${c.before}→${c.after}`).join(' / ')}</div>`:'';
       return`<div style="padding:13px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
         <div>
-          <div style="font-weight:600">${o.shop} <span class="badge bb" style="margin-left:6px">${o.date}</span></div>
+          <div style="font-weight:600">${o.shop} <span class="badge bb" style="margin-left:6px">${o.date}</span>${editBadge}</div>
           <div style="font-size:12px;color:var(--tx2);margin-top:4px">${inames}</div>
           ${o.note?`<div style="font-size:11px;color:var(--am);margin-top:3px">📝 ${o.note}</div>`:''}
+          ${editDetail}
           <div style="font-size:12px;color:var(--tx2);margin-top:3px">概算 <strong style="color:var(--tx)">${eur(total)}</strong></div>
         </div>
         <button class="btn btn-p btn-sm" onclick="createSlip(${o.id})">伝票作成</button>
       </div>`;}).join('');
   document.getElementById('slip-wrap').style.display='none';
+}
+
+function renderDeliveryHistory(){
+  const sorted=[...deliveries].sort((a,b)=>b.date.localeCompare(a.date));
+  const rows=sorted.map(d=>{
+    const total=(d.items||[]).reduce((s,i)=>s+(parseFloat(i.price)||0)*(parseFloat(i.qty)||0),0);
+    return`<tr>
+      <td>${d.date}</td>
+      <td><span class="lc">${d.slipNo||'—'}</span></td>
+      <td>${d.shop}</td>
+      <td style="font-weight:600">${eur(total)}</td>
+      <td style="color:var(--tx2)">${d.driver||'—'}</td>
+      <td><button class="btn btn-sm" onclick="reprintSlip(${d.id})">伝票</button>
+          <button class="btn btn-sm" style="margin-left:4px" onclick="reprintCKSlip(${d.id})">CK控え</button></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('del-history-tbody').innerHTML=rows||'<tr><td colspan="6" class="empty">データなし</td></tr>';
+}
+
+function reprintSlip(deliveryId){
+  const d=deliveries.find(x=>x.id===deliveryId);if(!d)return;
+  const o=orders.find(x=>x.id===d.orderId)||{note:''};
+  // 伝票を再印刷（配送完了済みとして表示）
+  const rows=(d.items||[]).map(i=>{
+    const p=pById(i.pid);
+    const name=i.pid==='chaashu'?'チャーシュー':(p?.name||i.productName||`ID:${i.pid}`);
+    const pouch=i.pid==='chaashu'?'#103TTMM':(p?.pouch||'');
+    const lotStr=(i.used||[]).map(u=>u.code).join(', ');
+    return`<tr><td>${name}</td><td>${pouch}</td><td>${i.qty}</td><td>${lotStr}</td>
+      <td>${eur(parseFloat(i.price)||0)}</td><td style="font-weight:600">${eur((parseFloat(i.price)||0)*(parseFloat(i.qty)||0))}</td></tr>`;
+  }).join('');
+  const total=(d.items||[]).reduce((s,i)=>s+(parseFloat(i.price)||0)*(parseFloat(i.qty)||0),0);
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>配送伝票 ${d.slipNo}</title>
+    <style>body{font-family:sans-serif;font-size:13px;padding:24px;color:#111}
+    h2{margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:12px}
+    th{background:#1a73e8;color:#fff;padding:8px;text-align:left;font-size:12px}
+    td{border:1px solid #ddd;padding:8px}tfoot td{font-weight:700;font-size:15px;text-align:right}
+    @media print{button{display:none}}</style></head>
+    <body><h2>配送伝票（再印刷）</h2>
+    <p style="font-size:12px;color:#555;margin-bottom:16px">伝票No: <strong>${d.slipNo}</strong>　店舗: <strong>${d.shop}</strong>　納品日: <strong>${d.date}</strong>　配送者: <strong>${d.driver||'—'}</strong></p>
+    <table><thead><tr><th>商品名</th><th>パウチ番号</th><th>数量</th><th>ロット番号</th><th>単価(€)</th><th>金額(€)</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td colspan="5" style="text-align:right;padding:10px 8px">合計</td><td style="padding:10px 8px;color:#1a73e8">${eur(total)}</td></tr></tfoot>
+    </table>
+    <button onclick="window.print()" style="margin-top:20px;padding:10px 24px;background:#1a73e8;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨 印刷する</button>
+    </body></html>`);
+  win.document.close();
+}
+
+function reprintCKSlip(deliveryId){
+  const d=deliveries.find(x=>x.id===deliveryId);if(!d)return;
+  printSlipForCK(d,{});
 }
 function goSlip(id){go('delivery',null);setTimeout(()=>createSlip(id),60);}
 function createSlip(oid){
@@ -1285,10 +1398,11 @@ function completeDelivery(){
 }
 
 function printSlipForCK(rec,o){
-  const rows=rec.items.map(i=>{
+  const rows=(rec.items||[]).map(i=>{
     const p=pById(i.pid);
+    const name=i.pid==='chaashu'?'チャーシュー':(p?.name||i.productName||`ID:${i.pid}`);
     const lotStr=(i.used||[]).map(u=>u.code).join(', ');
-    return`<tr><td>${p?.name||i.productName||''}</td><td>${i.qty}</td>
+    return`<tr><td>${name}</td><td>${i.qty}</td>
       <td>${lotStr}</td><td style="font-weight:600;color:#1a6b3c">${i.departTemp||'—'}℃</td><td>（店舗記入）</td></tr>`;
   }).join('');
   const win=window.open('','_blank');
@@ -1301,7 +1415,7 @@ function printSlipForCK(rec,o){
     .sig{margin-top:32px;display:flex;gap:40px}.sig-box{flex:1;border-top:1px solid #999;padding-top:6px;font-size:12px;color:#555}
     @media print{button{display:none}}</style></head>
     <body><h2>温度記録票（セントラルキッチン控え）</h2>
-    <p style="font-size:12px;color:#555;margin-bottom:16px">伝票No: <strong>${rec.slipNo}</strong>　店舗: <strong>${rec.shop}</strong>　納品日: <strong>${rec.date}</strong>　配送者: <strong>${rec.driver}</strong>　積み込み日時: <strong>${rec.at}</strong></p>
+    <p style="font-size:12px;color:#555;margin-bottom:16px">伝票No: <strong>${rec.slipNo}</strong>　店舗: <strong>${rec.shop}</strong>　納品日: <strong>${rec.date}</strong>　配送者: <strong>${rec.driver||'—'}</strong>　積み込み日時: <strong>${rec.at}</strong></p>
     <table><thead><tr><th>商品名</th><th>数量</th><th>ロット番号</th><th>積み込み温度</th><th>到着温度（店舗記入欄）</th></tr></thead>
     <tbody>${rows}</tbody></table>
     <div class="sig"><div class="sig-box">積み込み担当者サイン</div><div class="sig-box">確認者サイン</div></div>
@@ -1310,39 +1424,93 @@ function printSlipForCK(rec,o){
   win.document.close();
 }
 
+// ===== 店舗間原価移動 =====
+const ALL_LOCATIONS=['セントラルキッチン','本店','ケルン店','ビルク店','エッセン店','居酒屋'];
+function renderTransferProduct(){
+  // 商品マスタから動的に取得（新規追加商品も含む）
+  const psel=document.getElementById('tr-product');
+  if(psel) psel.innerHTML=products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+
+  // 全拠点（セントラル含む）
+  const locations=['セントラルキッチン','本店','ケルン店','ビルク店','エッセン店','居酒屋'];
+  const fromSel=document.getElementById('tr-from');
+  const toSel=document.getElementById('tr-to');
+  if(fromSel) fromSel.innerHTML=locations.map(l=>`<option value="${l}">${l}</option>`).join('');
+  if(toSel){
+    toSel.innerHTML=locations.map(l=>`<option value="${l}">${l}</option>`).join('');
+    toSel.value='セントラルキッチン';
+  }
+  const dateEl=document.getElementById('tr-date');
+  if(dateEl) dateEl.value=td;
+
+  // 移動履歴
+  const hist=[...transfers].sort((a,b)=>b.date.localeCompare(a.date));
+  const trows=hist.map(t=>`<tr>
+    <td style="font-size:12px;color:var(--tx2)">${t.date}</td>
+    <td>${t.productName||pName(t.pid)}</td>
+    <td>${t.qty}</td>
+    <td>${t.from}</td>
+    <td>${t.to}</td>
+    <td style="font-weight:600">${eur((parseFloat(t.price)||0)*(parseFloat(t.qty)||0))}</td>
+  </tr>`).join('');
+  const el=document.getElementById('transfer-history-tbody');
+  if(el) el.innerHTML=trows||'<tr><td colspan="6" class="empty">データなし</td></tr>';
+}
+
+function submitTransfer(){
+  const pid=parseInt(document.getElementById('tr-product').value);
+  const qty=parseFloat(document.getElementById('tr-qty').value);
+  const date=document.getElementById('tr-date').value;
+  const from=document.getElementById('tr-from').value;
+  const to=document.getElementById('tr-to').value;
+  const note=document.getElementById('tr-note').value;
+  if(!pid||!qty||!date){alert('商品・数量・日付は必須です');return;}
+  if(from===to){alert('送り出し元と受け取り先が同じです');return;}
+  const p=pById(pid);
+  const rec={id:Date.now(),pid,productName:p?.name||'',qty,date,from,to,note,price:p?.price||0,at:td};
+  transfers.push(rec);
+  gasCall('saveTransfer',rec);
+  document.getElementById('tr-qty').value='';
+  document.getElementById('tr-note').value='';
+  renderTransferProduct();
+  alert(`${p?.name} ${qty}個の移動を記録しました\n${from} → ${to}`);
+}
+
 function renderTempPage(){
   const myShop=RNAMES[role];
-  const pending=deliveries.filter(d=>d.shop===myShop&&!tempRecords[d.id]);
+  const pending=deliveries.filter(d=>d.shop===myShop&&!tempRecords[d.id]&&!tempRecords[String(d.id)]);
   document.getElementById('temp-pending-list').innerHTML=pending.length===0
     ?'<div class="empty">未記入の配送はありません</div>'
     :pending.map(d=>{
       const itemRows=(d.items||[]).map(i=>{
         const p=pById(i.pid);
-        const pname=p?.name||i.productName||`商品ID:${i.pid}`;
-        return`<tr><td>${pname}</td>
+        const pname=i.pid==='chaashu'?'チャーシュー':(p?.name||i.productName||`商品ID:${i.pid}`);
+        return`<tr>
+          <td>${pname}</td>
           <td style="color:#b45309;font-weight:600">${i.departTemp||'—'}℃</td>
-          <td><input type="number" step="0.1" class="qinp" style="width:80px" id="arr-${d.id}-${i.pid}" placeholder="℃"></td></tr>`;
+          <td><input type="number" step="0.1" class="qinp" style="width:80px" id="arr-${d.id}-${i.pid}" placeholder="℃"></td>
+        </tr>`;
       }).join('');
       return`<div style="padding:13px;border-bottom:1px solid var(--bdr);margin-bottom:4px">
         <div style="font-weight:600;margin-bottom:8px">伝票 No. ${d.slipNo||'—'} <span class="badge bb" style="margin-left:8px">${d.date}</span> <span style="font-size:12px;color:var(--tx2);margin-left:8px">配送者: ${d.driver||'—'}</span></div>
         <table style="margin-bottom:10px"><thead><tr><th>商品名</th><th>積み込み温度</th><th>到着温度（記入）</th></tr></thead>
         <tbody>${itemRows}</tbody></table>
-        <button class="btn btn-p btn-sm" onclick="saveArrivalTemps(${d.id})">この伝票の到着温度を記録</button>
+        <button class="btn btn-p btn-sm" onclick="saveArrivalTemps('${d.id}')">この伝票の到着温度を記録</button>
       </div>`;
     }).join('');
-  const myDeliveries=deliveries.filter(d=>d.shop===myShop);
+  const myDeliveries=[...deliveries].filter(d=>d.shop===myShop).sort((a,b)=>b.date.localeCompare(a.date));
   const tbody=myDeliveries.map(d=>{
-    const tr=tempRecords[d.id];
-    const summary=(d.items||[]).map(i=>{
-      const p=pById(i.pid);
-      const pname=p?.name||i.productName||`ID:${i.pid}`;
-      const arr=tr?tr.itemTemps?.[String(i.pid)]||'—':'未記入';
-      return`${pname}: 出${i.departTemp||'—'}℃→着${arr}℃`;
-    }).join(' / ');
-    return`<tr><td>${d.date}</td><td><span class="lc">${d.slipNo||'—'}</span></td>
-      <td style="font-size:12px">${summary}</td>
-      <td style="font-size:11px;color:var(--tx3)">${tr?tr.recordedAt:'未記入'}</td>
-      <td>${tr?`<button class="btn btn-sm" onclick="printArrivalRecord(${d.id})">印刷</button>`:''}</td></tr>`;
+    const tr=tempRecords[d.id]||tempRecords[String(d.id)];
+    const statusBadge=tr
+      ?'<span class="badge bg">記録済み</span>'
+      :'<span class="badge ba">未記入</span>';
+    return`<tr>
+      <td>${d.date}</td>
+      <td><span class="lc">${d.slipNo||'—'}</span></td>
+      <td>${statusBadge}</td>
+      <td style="font-size:11px;color:var(--tx3)">${tr?tr.recordedAt:'—'}</td>
+      <td>${tr?`<button class="btn btn-sm" onclick="printArrivalRecord('${d.id}')">印刷</button>`:''}</td>
+    </tr>`;
   }).join('');
   document.getElementById('temp-history-tbody').innerHTML=tbody||'<tr><td colspan="5" class="empty">データなし</td></tr>';
   const tb=document.getElementById('temp-badge');
@@ -1350,39 +1518,46 @@ function renderTempPage(){
 }
 
 function saveArrivalTemps(deliveryId){
-  const d=deliveries.find(x=>x.id===deliveryId);if(!d)return;
+  const d=deliveries.find(x=>String(x.id)===String(deliveryId));if(!d)return;
   const itemTemps={};let allFilled=true;
-  d.items.forEach(i=>{
+  (d.items||[]).forEach(i=>{
     const el=document.getElementById(`arr-${deliveryId}-${i.pid}`);
     const val=el?el.value:'';
     if(!val)allFilled=false;
-    itemTemps[i.pid]=val||'—';
+    itemTemps[String(i.pid)]=val||'—';
   });
   if(!allFilled&&!confirm('未入力の商品があります。このまま記録しますか？'))return;
   const now=new Date();
   const at=now.toLocaleDateString('ja-JP')+' '+now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+  tempRecords[String(deliveryId)]={itemTemps,recordedAt:at};
   tempRecords[deliveryId]={itemTemps,recordedAt:at};
-  gasCall('saveTempRecord',{deliveryId,itemTemps,shop:RNAMES[role],recordedAt:at});
+  gasCall('saveTempRecord',{deliveryId:String(deliveryId),itemTemps,shop:RNAMES[role],recordedAt:at});
   alert('到着温度を記録しました');
-  printArrivalRecord(deliveryId);
+  printArrivalRecord(String(deliveryId));
   renderTempPage();
 }
 
+
 function printArrivalRecord(deliveryId){
-  const d=deliveries.find(x=>x.id===deliveryId);if(!d)return;
-  const tr=tempRecords[deliveryId];
-  const rows=d.items.map(i=>{
+  const d=deliveries.find(x=>String(x.id)===String(deliveryId));if(!d)return;
+  const tr=tempRecords[deliveryId]||tempRecords[String(deliveryId)];
+  const rows=(d.items||[]).map(i=>{
     const p=pById(i.pid);
-    const arr=tr?tr.itemTemps?.[i.pid]||'—':'—';
-    const lotStr=(i.used||[]).map(u=>u.code).join(', ');
-    return`<tr><td>${p?.name||''}</td><td>${p?.pouch||''}</td><td>${i.qty}</td>
+    const name=i.pid==='chaashu'?'チャーシュー':(p?.name||i.productName||`ID:${i.pid}`);
+    const pouch=i.pid==='chaashu'?'#103TTMM':(p?.pouch||'');
+    const pidStr=String(i.pid);
+    const arr=tr?(tr.itemTemps?.[pidStr]||tr.itemTemps?.[i.pid]||'—'):'—';
+    const lotStr=(i.used||[]).map(u=>u.code||u).join(', ')||'—';
+    return`<tr>
+      <td>${name}</td><td>${pouch}</td><td>${i.qty}</td>
       <td>${lotStr}</td>
       <td style="color:#1a6b3c;font-weight:600">${i.departTemp||'—'}℃</td>
-      <td style="color:#b45309;font-weight:600">${arr}℃</td></tr>`;
+      <td style="color:#b45309;font-weight:600">${arr}℃</td>
+    </tr>`;
   }).join('');
   const win=window.open('','_blank');
   win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-    <title>温度記録票 ${d.slipNo} — ${d.shop}</title>
+    <title>温度記録票 ${d.slipNo||'—'} — ${d.shop}</title>
     <style>body{font-family:sans-serif;font-size:13px;padding:24px;color:#111}
     h2{margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:12px}
     th{background:#1a73e8;color:#fff;padding:8px;text-align:left;font-size:12px}
@@ -1390,9 +1565,14 @@ function printArrivalRecord(deliveryId){
     .sig{margin-top:32px;display:flex;gap:40px}.sig-box{flex:1;border-top:1px solid #999;padding-top:6px;font-size:12px;color:#555}
     @media print{button{display:none}}</style></head>
     <body><h2>温度記録票（${d.shop} 控え）</h2>
-    <p style="font-size:12px;color:#555;margin-bottom:16px">伝票No: <strong>${d.slipNo||'—'}</strong>　納品日: <strong>${d.date}</strong>　配送者: <strong>${d.driver||'—'}</strong>　受け取り記録日時: <strong>${tr?tr.recordedAt:'—'}</strong></p>
+    <p style="font-size:12px;color:#555;margin-bottom:16px">
+      伝票No: <strong>${d.slipNo||'—'}</strong>　
+      納品日: <strong>${d.date}</strong>　
+      配送者: <strong>${d.driver||'—'}</strong>　
+      受け取り記録日時: <strong>${tr?tr.recordedAt:'—'}</strong>
+    </p>
     <table><thead><tr><th>商品名</th><th>パウチ番号</th><th>数量</th><th>ロット番号</th><th>積み込み温度</th><th>到着温度</th></tr></thead>
-    <tbody>${rows}</tbody></table>
+    <tbody>${rows||'<tr><td colspan="6">データなし</td></tr>'}</tbody></table>
     <div class="sig"><div class="sig-box">受け取り担当者サイン</div><div class="sig-box">確認者サイン</div></div>
     <button onclick="window.print()" style="margin-top:20px;padding:10px 24px;background:#1a73e8;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨 印刷する</button>
     </body></html>`);
@@ -1440,8 +1620,7 @@ function delProd(pid){if(!confirm('削除しますか？'))return;products=produ
 function renderMonthly(){
   const month=document.getElementById('mon-month').value;if(!month)return;
   const[y,m]=month.split('-').map(Number);
-  const demo=[];
-  const all=[...demo,...deliveries.filter(d=>{const dt=new Date(d.date);return dt.getFullYear()===y&&dt.getMonth()+1===m;})];
+  const all=[...deliveries.filter(d=>{const dt=new Date(d.date);return dt.getFullYear()===y&&dt.getMonth()+1===m;})];
   all.sort((a,b)=>a.date.localeCompare(b.date));
 
   let grandTotal=0;const shopMap={};
@@ -1449,18 +1628,23 @@ function renderMonthly(){
     if(!shopMap[d.shop])shopMap[d.shop]={cnt:0,total:0};
     shopMap[d.shop].cnt++;
     (d.items||[]).forEach(i=>{
-      const lt=(parseFloat(i.price)||0)*(parseFloat(i.qty)||0);
-      grandTotal+=lt;
-      shopMap[d.shop].total+=lt;
+      // priceが0またはない場合は商品マスタから取得
+      let price=parseFloat(i.price)||0;
+      if(!price){
+        if(i.pid==='chaashu') price=22.00;
+        else { const p=pById(i.pid); price=p?.price||0; }
+      }
+      const qty=parseFloat(i.qty)||0;
+      if(qty===0) return;
+      grandTotal+=price*qty;
+      shopMap[d.shop].total+=price*qty;
     });
   });
 
-  // メトリクス（2つだけ）
   document.getElementById('mon-metrics').innerHTML=`
     <div class="metric"><div class="metric-l">配送回数</div><div class="metric-v">${all.length}</div></div>
     <div class="metric"><div class="metric-l">月次合計原価</div><div class="metric-v" style="font-size:20px;color:var(--ac)">${eur(grandTotal)}</div></div>`;
 
-  // 店舗別合計（シンプルテーブル）
   document.getElementById('mon-shop-tbody').innerHTML=SHOP_ORDER.map(shop=>{
     const d=shopMap[shop];
     if(!d)return`<tr><td>${shop}</td><td style="color:var(--tx3)">—</td><td style="color:var(--tx3)">${eur(0)}</td></tr>`;
@@ -1469,31 +1653,33 @@ function renderMonthly(){
     <td colspan="2" style="text-align:right;font-weight:600;padding:10px 11px">合計</td>
     <td style="font-weight:700;font-size:16px;padding:10px 11px;color:var(--ac)">${eur(grandTotal)}</td></tr>`;
 
-  // 明細（シンプル：ロット列なし）
   let detail='';
   all.forEach(d=>(d.items||[]).forEach(i=>{
+    let price=parseFloat(i.price)||0;
+    if(!price){
+      if(i.pid==='chaashu') price=22.00;
+      else { const p=pById(i.pid); price=p?.price||0; }
+    }
     const p=pById(i.pid);
-    const price=parseFloat(i.price)||0;
+    const name=i.pid==='chaashu'?'チャーシュー':(p?.name||i.productName||`商品ID:${i.pid}`);
     const qty=parseFloat(i.qty)||0;
+    if(qty===0) return;
     detail+=`<tr>
       <td style="font-size:12px;color:var(--tx2)">${d.date}</td>
-      <td>${d.shop}</td>
-      <td>${p?.name||i.productName||`商品ID:${i.pid}`}</td>
-      <td>${qty}</td>
+      <td>${d.shop}</td><td>${name}</td><td>${qty}</td>
       <td>${eur(price)}</td>
       <td style="font-weight:600">${eur(price*qty)}</td>
     </tr>`;
   }));
-  // 店舗間移動（当月分）を追記
   const monthTransfers=transfers.filter(t=>{const dt=new Date(t.date);return dt.getFullYear()===y&&dt.getMonth()+1===m;});
   monthTransfers.forEach(t=>{
+    const price=parseFloat(t.price)||0;const qty=parseFloat(t.qty)||0;
     detail+=`<tr style="background:rgba(155,124,248,0.05)">
       <td style="font-size:12px;color:var(--tx2)">${t.date}</td>
       <td><span class="badge bp" style="font-size:10px">店舗間</span> ${t.from}→${t.to}</td>
-      <td>${t.productName}</td>
-      <td>${t.qty}</td>
-      <td>${eur(t.price)}</td>
-      <td style="font-weight:600">${eur(t.price*t.qty)}</td>
+      <td>${t.productName||pName(t.pid)}</td>
+      <td>${qty}</td><td>${eur(price)}</td>
+      <td style="font-weight:600">${eur(price*qty)}</td>
     </tr>`;
   });
   document.getElementById('mon-detail').innerHTML=detail||'<tr><td colspan="6" class="empty">データなし</td></tr>';

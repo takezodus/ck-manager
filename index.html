@@ -873,7 +873,14 @@ function initApp(){
   if(transferTab) transferTab.style.display=isCK?'flex':'none';
   const msel=document.getElementById('mon-month');
   msel.innerHTML='';
-  for(let i=0;i<6;i++){const d=new Date(today.getFullYear(),today.getMonth()-i,1);const val=fmt(d).substring(0,7);msel.innerHTML+=`<option value="${val}">${d.toLocaleDateString('ja-JP',{year:'numeric',month:'long'})}</option>`;}
+  for(let i=0;i<6;i++){
+    const d=new Date(today.getFullYear(),today.getMonth()-i,1);
+    // getMonth()は0始まりなのでvalは月+1で作成
+    const yr=d.getFullYear();
+    const mo=String(d.getMonth()+1).padStart(2,'0');
+    const val=`${yr}-${mo}`;
+    msel.innerHTML+=`<option value="${val}">${d.toLocaleDateString('ja-JP',{year:'numeric',month:'long'})}</option>`;
+  }
   renderDashboard();updateBadges();
   // GAS接続時はスプレッドシートからデータ読み込み
   loadFromGAS().then(()=>{
@@ -1626,19 +1633,29 @@ function delProd(pid){if(!confirm('削除しますか？'))return;products=produ
 function renderMonthly(){
   const month=document.getElementById('mon-month').value;if(!month)return;
   const[y,m]=month.split('-').map(Number);
-  const all=[...deliveries.filter(d=>{const dt=new Date(d.date);return dt.getFullYear()===y&&dt.getMonth()+1===m;})];
-  all.sort((a,b)=>a.date.localeCompare(b.date));
+
+  // タイムゾーン問題を回避：日付文字列を直接パース
+  function getYM(dateStr){
+    if(!dateStr) return {y:0,m:0};
+    const s=String(dateStr).substring(0,10); // 'YYYY-MM-DD'
+    const parts=s.split('-');
+    return {y:parseInt(parts[0]),m:parseInt(parts[1])};
+  }
+
+  const all=deliveries.filter(d=>{
+    const {y:dy,m:dm}=getYM(d.date);
+    return dy===y&&dm===m;
+  }).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
 
   let grandTotal=0;const shopMap={};
   all.forEach(d=>{
     if(!shopMap[d.shop])shopMap[d.shop]={cnt:0,total:0};
     shopMap[d.shop].cnt++;
     (d.items||[]).forEach(i=>{
-      // priceが0またはない場合は商品マスタから取得
       let price=parseFloat(i.price)||0;
       if(!price){
         if(i.pid==='chaashu') price=22.00;
-        else { const p=pById(i.pid); price=p?.price||0; }
+        else{const p=pById(i.pid);price=p?.price||0;}
       }
       const qty=parseFloat(i.qty)||0;
       if(qty===0) return;
@@ -1664,24 +1681,28 @@ function renderMonthly(){
     let price=parseFloat(i.price)||0;
     if(!price){
       if(i.pid==='chaashu') price=22.00;
-      else { const p=pById(i.pid); price=p?.price||0; }
+      else{const p=pById(i.pid);price=p?.price||0;}
     }
     const p=pById(i.pid);
     const name=i.pid==='chaashu'?'チャーシュー':(p?.name||i.productName||`商品ID:${i.pid}`);
     const qty=parseFloat(i.qty)||0;
     if(qty===0) return;
     detail+=`<tr>
-      <td style="font-size:12px;color:var(--tx2)">${d.date}</td>
+      <td style="font-size:12px;color:var(--tx2)">${String(d.date).substring(0,10)}</td>
       <td>${d.shop}</td><td>${name}</td><td>${qty}</td>
       <td>${eur(price)}</td>
       <td style="font-weight:600">${eur(price*qty)}</td>
     </tr>`;
   }));
-  const monthTransfers=transfers.filter(t=>{const dt=new Date(t.date);return dt.getFullYear()===y&&dt.getMonth()+1===m;});
+
+  const monthTransfers=transfers.filter(t=>{
+    const {y:ty,m:tm}=getYM(t.date);
+    return ty===y&&tm===m;
+  });
   monthTransfers.forEach(t=>{
     const price=parseFloat(t.price)||0;const qty=parseFloat(t.qty)||0;
     detail+=`<tr style="background:rgba(155,124,248,0.05)">
-      <td style="font-size:12px;color:var(--tx2)">${t.date}</td>
+      <td style="font-size:12px;color:var(--tx2)">${String(t.date).substring(0,10)}</td>
       <td><span class="badge bp" style="font-size:10px">店舗間</span> ${t.from}→${t.to}</td>
       <td>${t.productName||pName(t.pid)}</td>
       <td>${qty}</td><td>${eur(price)}</td>

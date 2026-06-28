@@ -557,7 +557,7 @@ textarea.fi{resize:vertical;min-height:72px}
             <div class="fgrp"><label class="flbl">単価（€）</label><input class="fi" type="number" step="0.01" id="pf-price" placeholder="12.50"></div>
             <div class="fgrp">
               <label class="flbl">発注単位</label>
-              <select class="fi" id="pf-order-unit">
+              <select class="fi" id="pf-order-unit" onchange="toggleOrderUnitRow()">
                 <option value="pauch">パウチ・個数で発注（通常）</option>
                 <option value="kg">kgで発注（チャーシュー・肉類など）</option>
               </select>
@@ -1708,12 +1708,10 @@ function showProdForm(show){
   }
 }
 // 発注単位変更時にkg単価行を表示/非表示
-document.addEventListener('DOMContentLoaded',()=>{
+function toggleOrderUnitRow(){
   const ou=document.getElementById('pf-order-unit');
-  if(ou) ou.addEventListener('change',()=>{
-    document.getElementById('pf-kg-unit-row').style.display=ou.value==='kg'?'grid':'none';
-  });
-});
+  if(ou) document.getElementById('pf-kg-unit-row').style.display=ou.value==='kg'?'grid':'none';
+}
 function addProd(){
   const pouch=document.getElementById('pf-pouch').value.trim(),name=document.getElementById('pf-name').value.trim();
   const vol=document.getElementById('pf-vol').value.trim(),unit=document.getElementById('pf-unit').value.trim();

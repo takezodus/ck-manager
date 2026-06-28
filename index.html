@@ -52,12 +52,15 @@ body{background:var(--bg);color:var(--tx);font-family:var(--font);font-size:14px
 .ct{font-size:13px;font-weight:600}
 .cb{padding:14px 16px}
 /* Table */
-.tw{overflow-x:auto}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{font-size:11px;color:var(--tx3);font-weight:500;padding:7px 11px;text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
-td{padding:8px 11px;border-bottom:1px solid var(--bdr);vertical-align:middle}
+td{padding:8px 11px;border-bottom:1px solid var(--bdr);vertical-align:middle;white-space:nowrap;word-break:keep-all}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:rgba(255,255,255,0.018)}
+@media(max-width:700px){
+  td,th{white-space:nowrap}
+}
 /* Badge */
 .badge{display:inline-flex;align-items:center;font-size:11px;padding:2px 8px;border-radius:100px;font-weight:500;white-space:nowrap}
 .bg{background:var(--grd);color:var(--gr)}
@@ -95,6 +98,10 @@ textarea.fi{resize:vertical;min-height:72px}
 .lc{font-family:var(--mono);font-size:12px;background:var(--sur2);padding:2px 7px;border-radius:4px}
 /* Slip */
 .slip{background:var(--sur2);border:1px solid var(--bdr2);border-radius:var(--r);padding:18px;margin-top:12px}
+.slip-tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.slip-tw table{min-width:680px}
+.slip-scroll-hint{display:none;font-size:11px;color:var(--am);margin-bottom:6px}
+@media(max-width:700px){.slip-scroll-hint{display:block}}
 .slip-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--bdr)}
 /* Mobile */
 .mnav{display:none;background:var(--sur);border-bottom:1px solid var(--bdr);padding:8px 12px;gap:2px;flex-wrap:nowrap;overflow-x:auto}
@@ -381,16 +388,18 @@ textarea.fi{resize:vertical;min-height:72px}
         <div class="cb">
           <div class="fg2">
             <div class="fgrp"><label class="flbl">商品</label><select class="fi" id="lf-prod" onchange="genCode()"></select></div>
+            <div class="fgrp"><label class="flbl">納品日（仕入れ日）</label><input class="fi" type="date" id="lf-delivery-date"></div>
+          </div>
+          <div class="fg2">
             <div class="fgrp"><label class="flbl">仕込み日（DDMM形式でロット番号生成）</label><input class="fi" type="date" id="lf-date" onchange="genCode()"></div>
-          </div>
-          <div class="fg2">
             <div class="fgrp"><label class="flbl">ロット番号（自動生成）</label><input class="fi" id="lf-code" readonly></div>
-            <div class="fgrp"><label class="flbl">製造数量</label><input class="fi" type="number" id="lf-qty" placeholder="例: 10"></div>
           </div>
           <div class="fg2">
+            <div class="fgrp"><label class="flbl">製造数量（パウチ数）</label><input class="fi" type="number" step="0.1" min="0" id="lf-qty" placeholder="例: 10"></div>
             <div class="fgrp"><label class="flbl">消費期限</label><input class="fi" type="date" id="lf-exp"></div>
-            <div class="fgrp"><label class="flbl">メモ（任意）</label><input class="fi" id="lf-memo"></div>
           </div>
+          <div class="fg2">
+            <div class="fgrp"><label class="flbl">メモ（任意）</label><input class="fi" id="lf-memo"></div>
           <div class="factions">
             <button class="btn" onclick="showLotForm(false)">キャンセル</button>
             <button class="btn btn-p" onclick="regLot()">登録する</button>
@@ -546,6 +555,22 @@ textarea.fi{resize:vertical;min-height:72px}
           </div>
           <div class="fg2">
             <div class="fgrp"><label class="flbl">単価（€）</label><input class="fi" type="number" step="0.01" id="pf-price" placeholder="12.50"></div>
+            <div class="fgrp">
+              <label class="flbl">発注単位</label>
+              <select class="fi" id="pf-order-unit">
+                <option value="pauch">パウチ・個数で発注（通常）</option>
+                <option value="kg">kgで発注（チャーシュー・肉類など）</option>
+              </select>
+            </div>
+          </div>
+          <div class="fg2" id="pf-kg-unit-row" style="display:none">
+            <div class="fgrp"><label class="flbl">単価の基準</label>
+              <select class="fi" id="pf-price-unit">
+                <option value="10kg">10kgあたり</option>
+                <option value="1kg">1kgあたり</option>
+                <option value="unit">1個あたり</option>
+              </select>
+            </div>
           </div>
           <div class="factions">
             <button class="btn" onclick="showProdForm(false)">キャンセル</button>
@@ -787,8 +812,8 @@ function ddmm(dateStr){
 let products=[
   {id:1,pouch:'#101TTMM',name:'からちゃん',vol:'2000g',unit:'パウチ',stor:'冷蔵/冷凍',minStock:3,price:15.00},
   {id:2,pouch:'#102TTMM',name:'煮卵',vol:'30 st',unit:'パウチ',stor:'冷蔵',minStock:5,price:8.50},
-  {id:3,pouch:'100#103TTMM',name:'チャーシュー(100)',vol:'4〜5本',unit:'パウチ',stor:'冷凍',minStock:4,price:22.00},
-  {id:13,pouch:'200#103TTMM',name:'チャーシュー(200)',vol:'4〜5本',unit:'パウチ',stor:'冷凍',minStock:4,price:22.00},
+  {id:3,pouch:'100#103TTMM',name:'チャーシュー(100)',vol:'10kg',unit:'パウチ',orderUnit:'kg',priceUnit:'10kg',minStock:4,price:22.00},
+  {id:13,pouch:'200#103TTMM',name:'チャーシュー(200)',vol:'10kg',unit:'パウチ',orderUnit:'kg',priceUnit:'10kg',minStock:4,price:22.00},
   {id:4,pouch:'#104TTMM',name:'味噌',vol:'2000g',unit:'パウチ',stor:'冷蔵',minStock:3,price:6.80},
   {id:5,pouch:'#105TTMM',name:'丼たれ',vol:'2000g',unit:'パウチ',stor:'冷蔵',minStock:3,price:7.20},
   {id:6,pouch:'#106TTMM',name:'ラー油',vol:'10L',unit:'本',stor:'常温',minStock:2,price:18.00},
@@ -798,6 +823,8 @@ let products=[
   {id:10,pouch:'#110TTMM',name:'テンメンじゃん',vol:'—',unit:'パウチ',stor:'冷蔵',minStock:3,price:4.50},
   {id:11,pouch:'#111TTMM',name:'柚子鶏',vol:'2000g',unit:'パウチ',stor:'冷凍',minStock:3,price:16.00},
   {id:12,pouch:'#112TTMM',name:'餃子',vol:'冷凍',unit:'パウチ',stor:'冷凍',minStock:5,price:11.00},
+  {id:14,pouch:'#69TTMM',name:'居酒屋鶏肉',vol:'—',unit:'パウチ',stor:'冷凍',minStock:3,price:0},
+  {id:15,pouch:'#666TTMM',name:'居酒屋豚バラ',vol:'—',unit:'パウチ',stor:'冷凍',minStock:3,price:0},
 ];
 
 // サンプルロット: ロット番号 = パウチのTTMMをDDMM(仕込み日)に置換
@@ -974,25 +1001,37 @@ function renderOrder(){
     let h='';
     let chaashuRendered=false;
     products.forEach(p=>{
-      // チャーシュー2種は1行にまとめる
+      // チャーシュー2種は1行にまとめる（kg発注）
       if(CHAASHU_IDS.includes(p.id)){
         if(chaashuRendered) return;
         chaashuRendered=true;
         const totalStock=CHAASHU_IDS.reduce((s,id)=>s+stock(id),0);
         const al=aLots(3).concat(aLots(13)).sort((a,b)=>a.mfgDate.localeCompare(b.mfgDate));
         const li=al.length>0?`<span class="lc" style="font-size:11px">${al[0].code}</span>`:'<span style="color:var(--tx3);font-size:11px">なし</span>';
-        h+=`<tr><td><span class="lc">#103TTMM</span></td><td>チャーシュー</td><td style="color:var(--tx2)">4〜5本</td>
+        h+=`<tr>
+          <td><span class="lc">#103TTMM</span></td>
+          <td>チャーシュー</td>
+          <td style="color:var(--tx2)">10kg</td>
           <td>${totalStock}<span style="color:var(--tx3);font-size:11px"> パウチ</span></td>
-          <td><input class="qinp" type="number" min="0" value="0" id="oq-chaashu"></td>
-          <td style="color:var(--tx2)">${eur(p.price)}</td><td>${li}</td></tr>`;
+          <td><input class="qinp" type="number" min="0" step="0.1" value="0" id="oq-chaashu" style="width:70px"> <span style="font-size:11px;color:var(--am)">kg</span></td>
+          <td style="color:var(--tx2)">${eur(p.price)}<span style="font-size:10px;color:var(--tx3)">/10kg</span></td>
+          <td>${li}</td>
+        </tr>`;
         return;
       }
       const al=aLots(p.id);
       const li=al.length>0?`<span class="lc" style="font-size:11px">${al[0].code}</span>`:'<span style="color:var(--tx3);font-size:11px">なし</span>';
-      h+=`<tr><td><span class="lc">${p.pouch}</span></td><td>${p.name}</td><td style="color:var(--tx2)">${p.vol}</td>
+      // kg発注商品かどうかチェック
+      const isKg=p.orderUnit==='kg';
+      h+=`<tr>
+        <td><span class="lc">${p.pouch}</span></td>
+        <td>${p.name}</td>
+        <td style="color:var(--tx2)">${p.vol||'—'}</td>
         <td>${stock(p.id)}<span style="color:var(--tx3);font-size:11px"> ${p.unit}</span></td>
-        <td><input class="qinp" type="number" min="0" value="0" id="oq-${p.id}"></td>
-        <td style="color:var(--tx2)">${eur(p.price)}</td><td>${li}</td></tr>`;
+        <td><input class="qinp" type="number" min="0" step="${isKg?'0.1':'1'}" value="0" id="oq-${p.id}" style="width:70px"> ${isKg?'<span style="font-size:11px;color:var(--am)">kg</span>':''}</td>
+        <td style="color:var(--tx2)">${eur(p.price)}${isKg?`<span style="font-size:10px;color:var(--tx3)">/${p.priceUnit||'10kg'}</span>`:''}</td>
+        <td>${li}</td>
+      </tr>`;
     });
     document.getElementById('o-items').innerHTML=h;
   } else {renderCKOrders();}
@@ -1152,6 +1191,7 @@ function showLotForm(show){
   if(show){
     const sel=document.getElementById('lf-prod');
     sel.innerHTML=products.map(p=>`<option value="${p.id}">${p.pouch} ${p.name}</option>`).join('');
+    document.getElementById('lf-delivery-date').value=td;
     document.getElementById('lf-date').value=td;
     genCode();
   }
@@ -1163,15 +1203,16 @@ function genCode(){
 }
 function regLot(){
   const pid=parseInt(document.getElementById('lf-prod').value);
+  const delivDate=document.getElementById('lf-delivery-date').value;
   const d=document.getElementById('lf-date').value;
-  const qty=parseInt(document.getElementById('lf-qty').value);
+  const qty=parseFloat(document.getElementById('lf-qty').value);
   const exp=document.getElementById('lf-exp').value;
-  if(!pid||!d||!qty||!exp){alert('全項目を入力してください');return;}
+  if(!pid||!d||!qty||!exp){alert('商品・仕込み日・数量・消費期限は必須です');return;}
   const p=pById(pid);
   const code=makeCode(p,d);
-  const newLot={id:Date.now(),pid,code,mfgDate:d,expiry:exp,qty,rem:qty,memo:document.getElementById('lf-memo').value};
+  const newLot={id:Date.now(),pid,code,deliveryDate:delivDate||'',mfgDate:d,expiry:exp,qty,rem:qty,memo:document.getElementById('lf-memo').value};
   lots.push(newLot);
-  gasCall('saveLot', newLot);
+  gasCall('saveLot',newLot);
   showLotForm(false);renderLotPage();
   alert(`ロット ${code} を登録しました`);
 }
@@ -1321,18 +1362,34 @@ function createSlip(oid){
   curDelId=oid;
   const o=orders.find(x=>x.id===oid);if(!o)return;
   const asn=o.items.map(item=>{
-    // チャーシューは100#103と200#103両方のロットを合わせてFIFO
+    // チャーシューはkg発注 → FIFOでロット割当（在庫引き当ては後でパウチ数入力）
     if(item.pid==='chaashu'){
       const al=[...aLots(3),...aLots(13)].sort((a,b)=>a.mfgDate.localeCompare(b.mfgDate));
-      let need=item.qty;const used=[];
-      al.forEach(l=>{if(need<=0)return;const take=Math.min(l.rem,need);used.push({lot:l,take});need-=take;});
-      return{item:{...item,pid:'chaashu',productName:'チャーシュー'},used,short:need,isChaashu:true};
+      let need=999;const used=[];// 表示用に全ロットを列挙
+      al.slice(0,3).forEach(l=>{if(l.rem>0)used.push({lot:l,take:l.rem});});
+      return{item:{...item,pid:'chaashu',productName:'チャーシュー'},used,short:0,isChaashu:true,isKg:true};
     }
+    const p=pById(item.pid);
+    const isKg=p?.orderUnit==='kg';
     const al=aLots(item.pid);let need=item.qty;const used=[];
-    al.forEach(l=>{if(need<=0)return;const take=Math.min(l.rem,need);used.push({lot:l,take});need-=take;});
-    return{item,used,short:need};
+    if(!isKg){
+      al.forEach(l=>{if(need<=0)return;const take=Math.min(l.rem,need);used.push({lot:l,take});need-=take;});
+    } else {
+      al.forEach(l=>{if(l.rem>0)used.push({lot:l,take:l.rem});});
+    }
+    return{item,used,short:isKg?0:need,isKg};
   });
-  const grand=asn.reduce((s,{item})=>{const p=pById(item.pid);return s+(p?p.price*item.qty:0);},0);
+
+  // 合計はkg商品をkg単価で計算
+  const grand=asn.reduce((s,{item,isChaashu,isKg})=>{
+    if(isChaashu){
+      return s+(22.00/10)*item.qty; // 10kg単価÷10×kg数
+    }
+    const p=pById(item.pid);
+    if(isKg&&p) return s+(p.price/10)*item.qty;
+    return s+(p?p.price*item.qty:0);
+  },0);
+
   const slipNo='CK-'+String(oid).slice(-6);
   let h=`<div class="slip">
     <div class="slip-hd">
@@ -1343,30 +1400,51 @@ function createSlip(oid){
       </div>
       <div style="font-size:11px;color:var(--tx2);font-family:var(--mono)">No. ${slipNo}</div>
     </div>
-    <table>
-      <thead><tr><th>商品名</th><th>パウチ番号</th><th>発注数</th><th>割当ロット</th><th>消費期限</th><th>単価(€)</th><th>金額(€)</th><th style="color:var(--am)">積み込み温度(℃)</th></tr></thead><tbody>`;
-  asn.forEach(({item,used,short,isChaashu})=>{
-    const p=isChaashu?{name:'チャーシュー',pouch:'#103TTMM',price:22.00,unit:'パウチ'}:pById(item.pid);
-    const lt=p?p.price*item.qty:0;
+    <div class="slip-scroll-hint">👉 横にスワイプして温度入力欄を確認</div>
+    <div class="slip-tw"><table>
+      <thead><tr><th>商品名</th><th>パウチ番号</th><th>発注</th><th>割当ロット</th><th>消費期限</th><th>単価(€)</th><th>金額(€)</th><th style="color:var(--am)">積み込み温度(℃)</th></tr></thead><tbody>`;
+  asn.forEach(({item,used,short,isChaashu,isKg})=>{
+    const p=isChaashu?{name:'チャーシュー',pouch:'#103TTMM',price:22.00,unit:'パウチ',vol:'10kg'}:pById(item.pid);
+    // 金額計算：kg発注商品は10kg単価÷10×kg数
+    const unitPrice=p?.price||0;
+    const lt=isChaashu?(unitPrice/10)*item.qty : isKg?(unitPrice/10)*item.qty : unitPrice*item.qty;
     const tempInput=`<input type="number" step="0.1" class="qinp" style="width:72px" id="dt-${item.pid}" placeholder="℃">`;
-    if(!used.length){
+
+    if(isChaashu||isKg){
+      // kg発注：発注量はkg表示、パウチ数は配送時に入力
+      const ll=used.map((u,i)=>`<div style="${i>0?'margin-top:2px':''}"><span class="lc">${u.lot.code}</span> <span style="color:var(--tx2)">(残${u.take})</span></div>`).join('');
+      const el=used.map((u,i)=>`<div style="${i>0?'margin-top:2px':''}${diffD(u.lot.expiry,td)<=3?';color:var(--am)':''}">${u.lot.expiry}</div>`).join('');
+      h+=`<tr>
+        <td>${p?.name}</td><td><span class="lc">${p?.pouch||'—'}</span></td>
+        <td><strong>${item.qty}kg</strong> 発注<br>
+          <span style="font-size:11px;color:var(--am)">実際のパウチ数: </span>
+          <input type="number" step="1" min="0" class="qinp" style="width:58px" id="pouches-${item.pid}" placeholder="個">
+          <span style="font-size:11px;color:var(--tx3)">パウチ</span>
+        </td>
+        <td>${ll}</td>
+        <td>${el}</td>
+        <td>${eur(unitPrice)}<span style="font-size:10px;color:var(--tx3)">/10kg</span></td>
+        <td style="font-weight:600">${eur(lt)}</td>
+        <td>${tempInput}</td>
+      </tr>`;
+    } else if(!used.length){
       h+=`<tr><td>${p?.name}</td><td><span class="lc">${p?.pouch}</span></td><td>${item.qty}</td>
         <td colspan="2"><span class="badge br">在庫不足</span></td>
-        <td>${eur(p?.price||0)}</td><td>—</td><td>${tempInput}</td></tr>`;
+        <td>${eur(unitPrice)}</td><td>—</td><td>${tempInput}</td></tr>`;
     } else {
-      const ll=used.map((u,i)=>`<div style="${i>0?'margin-top:2px':''}" ><span class="lc">${u.lot.code}</span> <span style="color:var(--tx2)">×${u.take}</span></div>`).join('');
-      const el=used.map((u,i)=>`<div style="${i>0?'margin-top:2px':''} ${diffD(u.lot.expiry,td)<=3?';color:var(--am)':''}">${u.lot.expiry}</div>`).join('');
+      const ll=used.map((u,i)=>`<div style="${i>0?'margin-top:2px':''}"><span class="lc">${u.lot.code}</span> <span style="color:var(--tx2)">×${u.take}</span></div>`).join('');
+      const el=used.map((u,i)=>`<div style="${i>0?'margin-top:2px':''}${diffD(u.lot.expiry,td)<=3?';color:var(--am)':''}">${u.lot.expiry}</div>`).join('');
       h+=`<tr><td>${p?.name}</td><td><span class="lc">${p?.pouch}</span></td>
         <td>${item.qty}<span style="font-size:11px;color:var(--tx3)"> ${p?.unit}</span></td>
         <td>${ll}${short>0?`<div style="color:var(--rd);font-size:11px;margin-top:2px">⚠ ${short}${p?.unit}不足</div>`:''}</td>
-        <td>${el}</td><td>${eur(p?.price||0)}</td>
+        <td>${el}</td><td>${eur(unitPrice)}</td>
         <td style="font-weight:600">${eur(lt)}</td><td>${tempInput}</td></tr>`;
     }
   });
   h+=`</tbody><tfoot><tr style="border-top:2px solid var(--bdr2)">
     <td colspan="6" style="text-align:right;font-weight:600;padding:10px 11px">合計</td>
     <td style="font-weight:700;font-size:18px;padding:10px 11px;color:var(--ac)">${eur(grand)}</td><td></td>
-  </tr></tfoot></table></div>`;
+  </tr></tfoot></table></div></div>`;
   document.getElementById('slip-body').innerHTML=h;
   document.getElementById('slip-wrap').style.display='block';
   document.getElementById('slip-wrap').scrollIntoView({behavior:'smooth',block:'start'});
@@ -1382,24 +1460,44 @@ function completeDelivery(){
     itemTemps[item.pid]=el?el.value||'—':'—';
   });
   const rec={id:Date.now(),shop:o.shop,date:o.date,items:[],at:td,driver:driver||'—',slipNo,itemTemps};
+
   o.items.forEach(item=>{
-    let al;
-    if(item.pid==='chaashu'){
+    const isChaashu=item.pid==='chaashu';
+    const p=isChaashu?{price:22.00}:pById(item.pid);
+    const isKg=isChaashu||(p?.orderUnit==='kg');
+    let al,actualPouches,priceForRecord;
+    if(isChaashu){
       al=[...aLots(3),...aLots(13)].sort((a,b)=>a.mfgDate.localeCompare(b.mfgDate));
+      actualPouches=parseInt(document.getElementById('pouches-chaashu')?.value)||0;
+      priceForRecord=(22.00/10)*item.qty;
+    } else if(isKg){
+      al=aLots(item.pid);
+      actualPouches=parseInt(document.getElementById('pouches-'+item.pid)?.value)||0;
+      priceForRecord=((p?.price||0)/10)*item.qty;
     } else {
       al=aLots(item.pid);
+      actualPouches=item.qty;
+      priceForRecord=(p?.price||0)*item.qty;
     }
-    let need=item.qty;const used=[];
+    let need=isKg?actualPouches:item.qty;
+    const used=[];
     al.forEach(l=>{if(need<=0)return;const take=Math.min(l.rem,need);l.rem-=take;l._remChanged=true;need-=take;used.push({code:l.code,qty:take,exp:l.expiry});});
-    const p=item.pid==='chaashu'?{price:22.00}:pById(item.pid);
-    rec.items.push({pid:item.pid,qty:item.qty,price:p?.price||0,used,
-      productName:item.pid==='chaashu'?'チャーシュー':undefined,
-      departTemp:itemTemps[item.pid]||'—'});
+    rec.items.push({
+      pid:item.pid,
+      qty:isKg?item.qty:actualPouches,
+      actualPouches:isKg?actualPouches:undefined,
+      price:isChaashu?22.00:(p?.price||0),
+      priceUnit:isKg?'10kg':'unit',
+      lineTotal:priceForRecord,
+      used,
+      productName:isChaashu?'チャーシュー':undefined,
+      departTemp:itemTemps[item.pid]||'—',
+    });
   });
+
   deliveries.push(rec);o.status='delivered';
   gasCall('saveDelivery',rec);
   gasCall('updateOrderStatus',{id:o.id,status:'delivered'});
-  // ロット残数をGASに反映
   const lotUpdates=lots.filter(l=>l._remChanged).map(l=>({id:l.id,rem:l.rem}));
   lots.forEach(l=>delete l._remChanged);
   if(lotUpdates.length>0) gasCall('updateLotRem',{updates:lotUpdates});
@@ -1594,16 +1692,42 @@ function printArrivalRecord(deliveryId){
 
 
 // ===== MASTER =====
-function showProdForm(show){document.getElementById('prod-form').style.display=show?'block':'none';}
+function showProdForm(show){
+  document.getElementById('prod-form').style.display=show?'block':'none';
+  if(show){
+    document.getElementById('pf-pouch').value='';
+    document.getElementById('pf-name').value='';
+    document.getElementById('pf-vol').value='';
+    document.getElementById('pf-unit').value='';
+    document.getElementById('pf-stor').value='冷蔵';
+    document.getElementById('pf-min').value='';
+    document.getElementById('pf-price').value='';
+    document.getElementById('pf-order-unit').value='pauch';
+    document.getElementById('pf-price-unit').value='10kg';
+    document.getElementById('pf-kg-unit-row').style.display='none';
+  }
+}
+// 発注単位変更時にkg単価行を表示/非表示
+document.addEventListener('DOMContentLoaded',()=>{
+  const ou=document.getElementById('pf-order-unit');
+  if(ou) ou.addEventListener('change',()=>{
+    document.getElementById('pf-kg-unit-row').style.display=ou.value==='kg'?'grid':'none';
+  });
+});
 function addProd(){
   const pouch=document.getElementById('pf-pouch').value.trim(),name=document.getElementById('pf-name').value.trim();
   const vol=document.getElementById('pf-vol').value.trim(),unit=document.getElementById('pf-unit').value.trim();
   const stor=document.getElementById('pf-stor').value,minStock=parseInt(document.getElementById('pf-min').value)||0;
   const price=parseFloat(document.getElementById('pf-price').value)||0;
+  const orderUnitRaw=document.getElementById('pf-order-unit').value;
+  const priceUnit=document.getElementById('pf-price-unit').value;
+  const orderUnit=orderUnitRaw==='kg'?'kg':undefined;
   if(!pouch||!name||!unit){alert('パウチ番号・商品名・単位は必須です');return;}
-  const newP={id:Date.now(),pouch,name,vol,unit,stor,minStock,price};
+  const newP={id:Date.now(),pouch,name,vol,unit,stor,minStock,price,
+    orderUnit:orderUnit||undefined,
+    priceUnit:orderUnit?priceUnit:undefined};
   products.push(newP);
-  gasCall('saveProduct', newP);
+  gasCall('saveProduct',newP);
   showProdForm(false);renderMaster();
 }
 function renderMaster(){

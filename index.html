@@ -388,10 +388,10 @@ textarea.fi{resize:vertical;min-height:72px}
         <div class="cb">
           <div class="fg2">
             <div class="fgrp"><label class="flbl">商品</label><select class="fi" id="lf-prod" onchange="genCode()"></select></div>
-            <div class="fgrp"><label class="flbl">納品日（仕入れ日）</label><input class="fi" type="date" id="lf-delivery-date"></div>
+            <div class="fgrp"><label class="flbl">納品日（DDMM形式でロット番号生成）</label><input class="fi" type="date" id="lf-delivery-date" onchange="genCode()"></div>
           </div>
           <div class="fg2">
-            <div class="fgrp"><label class="flbl">仕込み日（DDMM形式でロット番号生成）</label><input class="fi" type="date" id="lf-date" onchange="genCode()"></div>
+            <div class="fgrp"><label class="flbl">仕込み日（内部記録用）</label><input class="fi" type="date" id="lf-date"></div>
             <div class="fgrp"><label class="flbl">ロット番号（自動生成）</label><input class="fi" id="lf-code" readonly></div>
           </div>
           <div class="fg2">
@@ -420,7 +420,7 @@ textarea.fi{resize:vertical;min-height:72px}
             </select>
             <select class="fi" id="lf-view" onchange="renderLots()" style="width:auto;font-size:12px;padding:5px 8px">
               <option value="grouped">商品ごとにまとめる</option>
-              <option value="date">仕込み日順（古い順）</option>
+              <option value="date">納品日順（古い順）</option>
             </select>
           </div>
         </div>
@@ -668,14 +668,17 @@ textarea.fi{resize:vertical;min-height:72px}
       </div>
       <div class="fg2">
         <div class="fgrp"><label class="flbl">商品</label><input class="fi" id="ml-prodname" readonly></div>
-        <div class="fgrp"><label class="flbl">仕込み日</label><input class="fi" id="ml-date" readonly></div>
+        <div class="fgrp"><label class="flbl">納品日</label><input class="fi" id="ml-delivery-date" readonly></div>
       </div>
       <div class="fg2">
+        <div class="fgrp"><label class="flbl">仕込み日（内部記録）</label><input class="fi" type="date" id="ml-date"></div>
         <div class="fgrp"><label class="flbl">製造数量</label><input class="fi" type="number" id="ml-qty"></div>
-        <div class="fgrp"><label class="flbl">残数（現在の在庫）</label><input class="fi" type="number" id="ml-rem"></div>
       </div>
       <div class="fg2">
+        <div class="fgrp"><label class="flbl">残数（現在の在庫）</label><input class="fi" type="number" id="ml-rem"></div>
         <div class="fgrp"><label class="flbl">消費期限</label><input class="fi" type="date" id="ml-exp"></div>
+      </div>
+      <div class="fg2">
         <div class="fgrp"><label class="flbl">メモ</label><input class="fi" id="ml-memo"></div>
       </div>
     </div>
@@ -845,11 +848,13 @@ function lstatus(l){
 }
 function aLots(pid){
   return lots.filter(l=>l.pid===pid&&(lstatus(l)==='active'||lstatus(l)==='expiring')&&l.rem>0)
-    .sort((a,b)=>a.mfgDate.localeCompare(b.mfgDate)); // 古い順（FIFO）
+    .sort((a,b)=>sortDate(a).localeCompare(sortDate(b))); // 古い順（FIFO、納品日基準）
 }
 function stock(pid){return aLots(pid).reduce((s,l)=>s+l.rem,0);}
 function pById(id){return products.find(p=>String(p.id)===String(id));}
 function pName(id){return(pById(id)||{name:'-'}).name;}
+// 納品日があればそれを使い、なければ仕込み日にフォールバック（古いデータ対応）
+function sortDate(l){return l.deliveryDate||l.mfgDate;}
 function bstat(s){return{active:'<span class="badge bg">有効</span>',expiring:'<span class="badge ba">期限間近</span>',expired:'<span class="badge br">期限切れ</span>',depleted:'<span class="badge bp">使い切り</span>'}[s]||s;}
 function storTag(s){const c=s==='冷凍'?'stor-frz':s==='常温'?'stor-amb':'stor-ref';return`<span class="stor-tag ${c}">${s}</span>`;}
 function makeCode(p,dateStr){return p.pouch.replace('TTMM',ddmm(dateStr));}
@@ -975,7 +980,7 @@ function renderDashboard(){
     const st=stock(p.id),pct=Math.min(100,Math.round(st/(p.minStock*4)*100));
     const bc=st<p.minStock?'var(--rd)':st<p.minStock*2?'var(--am)':'var(--gr)';
     const badge=st<p.minStock?'<span class="badge br">不足</span>':st<p.minStock*2?'<span class="badge ba">少ない</span>':'<span class="badge bg">良好</span>';
-    const al=aLots(p.id);const last=al.length>0?al[0].mfgDate:'-';
+    const al=aLots(p.id);const last=al.length>0?sortDate(al[0]):'-';
     invH+=`<tr><td><span class="lc">${p.pouch}</span></td><td>${p.name}</td>
       <td>${st}<span style="color:var(--tx3);font-size:11px"> ${p.unit}</span></td>
       <td><div class="pw"><div class="pb" style="width:${pct}%;background:${bc}"></div></div></td>
@@ -1007,7 +1012,7 @@ function renderOrder(){
         if(chaashuRendered) return;
         chaashuRendered=true;
         const totalStock=CHAASHU_IDS.reduce((s,id)=>s+stock(id),0);
-        const al=aLots(3).concat(aLots(13)).sort((a,b)=>a.mfgDate.localeCompare(b.mfgDate));
+        const al=aLots(3).concat(aLots(13)).sort((a,b)=>sortDate(a).localeCompare(sortDate(b)));
         const li=al.length>0?`<span class="lc" style="font-size:11px">${al[0].code}</span>`:'<span style="color:var(--tx3);font-size:11px">なし</span>';
         h+=`<tr>
           <td><span class="lc">#103TTMM</span></td>
@@ -1197,10 +1202,12 @@ function showLotForm(show){
     genCode();
   }
 }
+// ロット番号は納品日基準で生成（仕込み日は内部記録用として別途保持）
 function genCode(){
-  const pid=document.getElementById('lf-prod').value,d=document.getElementById('lf-date').value;
-  if(!pid||!d)return;
-  document.getElementById('lf-code').value=makeCode(pById(parseInt(pid)),d);
+  const pid=document.getElementById('lf-prod').value;
+  const delivDate=document.getElementById('lf-delivery-date').value;
+  if(!pid||!delivDate)return;
+  document.getElementById('lf-code').value=makeCode(pById(parseInt(pid)),delivDate);
 }
 function regLot(){
   const pid=parseInt(document.getElementById('lf-prod').value);
@@ -1208,10 +1215,10 @@ function regLot(){
   const d=document.getElementById('lf-date').value;
   const qty=parseFloat(document.getElementById('lf-qty').value);
   const exp=document.getElementById('lf-exp').value;
-  if(!pid||!d||!qty||!exp){alert('商品・仕込み日・数量・消費期限は必須です');return;}
+  if(!pid||!delivDate||!d||!qty||!exp){alert('商品・納品日・仕込み日・数量・消費期限は必須です');return;}
   const p=pById(pid);
-  const code=makeCode(p,d);
-  const newLot={id:Date.now(),pid,code,deliveryDate:delivDate||'',mfgDate:d,expiry:exp,qty,rem:qty,memo:document.getElementById('lf-memo').value};
+  const code=makeCode(p,delivDate); // ロット番号は納品日基準
+  const newLot={id:Date.now(),pid,code,deliveryDate:delivDate,mfgDate:d,expiry:exp,qty,rem:qty,memo:document.getElementById('lf-memo').value};
   lots.push(newLot);
   gasCall('saveLot',newLot);
   showLotForm(false);renderLotPage();
@@ -1233,17 +1240,17 @@ function renderLots(){
       <td>${l.qty}</td><td>${l.rem}</td>
       <td style="${diffD(l.expiry,td)<=3&&l.rem>0?'color:var(--am)':''}">${l.expiry}</td>
       <td>${bstat(lstatus(l))}</td>
-      <td style="font-size:12px;color:var(--tx3)">${l.mfgDate}</td>
+      <td style="font-size:12px;color:var(--tx3)">${sortDate(l)}</td>
       <td style="font-size:12px;color:var(--tx2)">${l.memo||'—'}</td>
       <td><button class="btn btn-sm" onclick="openLotModal(${l.id})">編集</button></td>
     </tr>`;
   };
 
-  const thead=`<table><thead><tr><th>ロット番号</th><th>商品名</th><th>製造数</th><th>残数</th><th>消費期限</th><th>状態</th><th>仕込み日</th><th>メモ</th><th>編集</th></tr></thead>`;
+  const thead=`<table><thead><tr><th>ロット番号</th><th>商品名</th><th>製造数</th><th>残数</th><th>消費期限</th><th>状態</th><th>納品日</th><th>メモ</th><th>編集</th></tr></thead>`;
 
   if(view==='date'){
-    // 仕込み日の古い順
-    fl.sort((a,b)=>a.mfgDate.localeCompare(b.mfgDate));
+    // 納品日の古い順
+    fl.sort((a,b)=>sortDate(a).localeCompare(sortDate(b)));
     const html=fl.length===0?'<div class="empty">該当なし</div>':
       `<div class="tw">${thead}<tbody>${fl.map(rowHtml).join('')}</tbody></table></div>`;
     document.getElementById('lot-list').innerHTML=html;
@@ -1252,7 +1259,7 @@ function renderLots(){
     if(fl.length===0){document.getElementById('lot-list').innerHTML='<div class="empty">該当なし</div>';return;}
     let html='';
     products.forEach(p=>{
-      const grp=fl.filter(l=>l.pid===p.id).sort((a,b)=>a.mfgDate.localeCompare(b.mfgDate));
+      const grp=fl.filter(l=>l.pid===p.id).sort((a,b)=>sortDate(a).localeCompare(sortDate(b)));
       if(!grp.length)return;
       const st=stock(p.id);
       const badge=st<p.minStock?'<span class="badge br">不足</span>':st<p.minStock*2?'<span class="badge ba">少ない</span>':'<span class="badge bg">良好</span>';
@@ -1365,7 +1372,7 @@ function createSlip(oid){
   const asn=o.items.map(item=>{
     // チャーシューはkg発注 → FIFOでロット割当（在庫引き当ては後でパウチ数入力）
     if(item.pid==='chaashu'){
-      const al=[...aLots(3),...aLots(13)].sort((a,b)=>a.mfgDate.localeCompare(b.mfgDate));
+      const al=[...aLots(3),...aLots(13)].sort((a,b)=>sortDate(a).localeCompare(sortDate(b)));
       let need=999;const used=[];// 表示用に全ロットを列挙
       al.slice(0,3).forEach(l=>{if(l.rem>0)used.push({lot:l,take:l.rem});});
       return{item:{...item,pid:'chaashu',productName:'チャーシュー'},used,short:0,isChaashu:true,isKg:true};
@@ -1882,7 +1889,8 @@ function openLotModal(lid){
   editingLotId=lid;
   document.getElementById('ml-code').value=l.code;
   document.getElementById('ml-prodname').value=p?.name||'-';
-  document.getElementById('ml-date').value=l.mfgDate;
+  document.getElementById('ml-delivery-date').value=l.deliveryDate||l.mfgDate||'-';
+  document.getElementById('ml-date').value=l.mfgDate||'';
   document.getElementById('ml-qty').value=l.qty;
   document.getElementById('ml-rem').value=l.rem;
   document.getElementById('ml-exp').value=l.expiry;
@@ -1892,12 +1900,14 @@ function openLotModal(lid){
 function closeLotModal(){document.getElementById('modal-lot').style.display='none';editingLotId=null;}
 function saveLot(){
   const l=lots.find(x=>x.id===editingLotId);if(!l)return;
-  const qty=parseInt(document.getElementById('ml-qty').value);
-  const rem=parseInt(document.getElementById('ml-rem').value);
+  const qty=parseFloat(document.getElementById('ml-qty').value);
+  const rem=parseFloat(document.getElementById('ml-rem').value);
   const exp=document.getElementById('ml-exp').value;
+  const mfgDate=document.getElementById('ml-date').value;
   if(!qty||!exp){alert('製造数量と消費期限は必須です');return;}
   if(rem>qty){alert('残数が製造数量を超えています');return;}
   l.qty=qty;l.rem=rem;l.expiry=exp;
+  if(mfgDate) l.mfgDate=mfgDate; // 仕込み日は編集可能（ロット番号・納品日は変更不可）
   l.memo=document.getElementById('ml-memo').value;
   gasCall('updateLot', l);
   closeLotModal();renderLots();

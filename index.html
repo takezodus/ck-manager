@@ -857,7 +857,12 @@ function pName(id){return(pById(id)||{name:'-'}).name;}
 function sortDate(l){return l.deliveryDate||l.mfgDate;}
 function bstat(s){return{active:'<span class="badge bg">有効</span>',expiring:'<span class="badge ba">期限間近</span>',expired:'<span class="badge br">期限切れ</span>',depleted:'<span class="badge bp">使い切り</span>'}[s]||s;}
 function storTag(s){const c=s==='冷凍'?'stor-frz':s==='常温'?'stor-amb':'stor-ref';return`<span class="stor-tag ${c}">${s}</span>`;}
-function makeCode(p,dateStr){return p.pouch.replace('TTMM',ddmm(dateStr));}
+function makeCode(p,dateStr){
+  if(!p) return '';
+  if(p.pouch.includes('TTMM')) return p.pouch.replace('TTMM',ddmm(dateStr));
+  // TTMMがないパウチ番号（例: 12）は末尾にDDMMを付加
+  return p.pouch + ddmm(dateStr);
+}
 
 // ===== PIN =====
 function tryLogin(){
@@ -1475,7 +1480,7 @@ function completeDelivery(){
     const isKg=isChaashu||(p?.orderUnit==='kg');
     let al,actualPouches,priceForRecord;
     if(isChaashu){
-      al=[...aLots(3),...aLots(13)].sort((a,b)=>a.mfgDate.localeCompare(b.mfgDate));
+      al=[...aLots(3),...aLots(13)].sort((a,b)=>sortDate(a).localeCompare(sortDate(b)));
       actualPouches=parseInt(document.getElementById('pouches-chaashu')?.value)||0;
       priceForRecord=(22.00/10)*item.qty;
     } else if(isKg){
@@ -1509,11 +1514,11 @@ function completeDelivery(){
   const lotUpdates=lots.filter(l=>l._remChanged).map(l=>({id:l.id,rem:l.rem}));
   lots.forEach(l=>delete l._remChanged);
   if(lotUpdates.length>0) gasCall('updateLotRem',{updates:lotUpdates});
-  printSlipForCK(rec,o);
   document.getElementById('slip-wrap').style.display='none';
   document.getElementById('temp-driver').value='';
   renderDelivery();updateBadges();
-  alert('配送完了・在庫に反映しました。印刷画面が開きます。');
+  alert('配送完了・在庫に反映しました。次に印刷画面が開きます。');
+  try{ printSlipForCK(rec,o); }catch(e){ console.error('印刷エラー:',e); }
 }
 
 function printSlipForCK(rec,o){

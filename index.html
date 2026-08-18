@@ -726,6 +726,22 @@ textarea.fi{resize:vertical;min-height:72px}
 
 <script>
 // ============================================================
+// CK Manager — 更新履歴 (このファイルを見れば何が直っているか分かるようにする)
+// ============================================================
+// [2026-08-18] v1.3
+//   - kg発注商品の単価計算を共通関数(kgUnitPrice/chaashuUnitPrice/itemEstimate)に統一。
+//     従来は伝票作成・配送完了・店舗間移動・発注一覧の見積りがそれぞれ別々に「/10」を
+//     決め打ちしており、1箇所直しても他が直っていない事故が2回発生したため一本化した。
+//     今後kg商品の金額計算を追加する場合は、必ずこれらの関数を経由すること。
+//   - 発注・配送完了時に商品名・パウチ番号をアイテム自体にも保存するようにし、
+//     商品マスタから該当商品が削除・変更されても表示が「-」にならないようにした。
+//   - 印刷ウィンドウ(伝票・温度記録票)に「閉じる」ボタンを追加、モバイルナビにログアウトを追加。
+// [2026-08-17] v1.2
+//   - GAS側でrole/pinを検証しない状態だったため、URL直打ちで誰でもデータ改ざん可能だった
+//     問題を修正（サーバー側のROLE_PINS/ACTION_PERMISSIONSに対応、要GAS側もv1.2以降）。
+//   - チャーシューの単価を商品マスタ参照(chaashuPrice())に統一し、ハードコード(22.00)を排除。
+//   - 店舗間移動(submitTransfer)にkg換算ロジックを追加（従来は換算せず10倍の金額になっていた）。
+// ============================================================
 // ★ GASデプロイ後にここにURLを貼り付けてください ★
 // ============================================================
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbx_6irB0j5s1vKIfosK0n0xn2cmULN1GtOOdg2lwByORVP5BcKW1H-FH-UF3MxAIAKD/exec';
@@ -857,12 +873,51 @@ function aLots(pid){
 function stock(pid){return aLots(pid).reduce((s,l)=>s+l.rem,0);}
 function pById(id){return products.find(p=>String(p.id)===String(id));}
 function pName(id){return(pById(id)||{name:'-'}).name;}
+// 発注・配送アイテムの表示名/パウチ番号を解決する。
+// マスタから商品が削除・変更された後でも、注文/配送時点で保存しておいたproductName/pouchを優先することで
+// 「-」表示やパウチ番号欠落を防ぐ。
+function itemLabel(i){
+  if(i.pid==='chaashu') return 'チャーシュー';
+  return i.productName || pName(i.pid);
+}
+function itemPouch(i){
+  if(i.pid==='chaashu') return i.pouch||'#103TTMM';
+  return i.pouch || (pById(i.pid)?.pouch) || '';
+}
 // 納品日があればそれを使い、なければ仕込み日にフォールバック（古いデータ対応）
 function sortDate(l){return l.deliveryDate||l.mfgDate;}
 // チャーシューの単価を商品マスタから取得（ハードコード排除）
 function chaashuPrice(){
   const p=pById(3)||pById(13)||products.find(p=>CHAASHU_IDS.includes(Number(p.id)));
   return p?.price||22.00;
+}
+// ============================================================
+// kg発注商品の「1kgあたり実単価」を、商品マスタの単価基準(priceUnit)に応じて算出する共通ヘルパー。
+// これを使わずに個別の場所で「/10」を決め打ちすると、priceUnitが「1kgあたり」や「1個あたり」の
+// 商品を将来追加したときに計算がズレるので、kg発注商品の金額計算は必ずこの関数を経由すること。
+//   priceUnit === '10kg' → マスタ単価は10kgあたりなので10で割る
+//   priceUnit === '1kg'  → マスタ単価がそのまま1kgあたり
+//   priceUnit === 'unit' → マスタ単価がそのまま1個あたり（kg発注だが単価は個数基準の特殊ケース）
+// ============================================================
+function kgUnitPrice(p){
+  const price=p?.price||0;
+  const basis=p?.priceUnit||'10kg';
+  if(basis==='10kg') return price/10;
+  return price;
+}
+// チャーシューの「1kgあたり実単価」（商品マスタのpriceUnit設定を尊重）
+function chaashuUnitPrice(){
+  const p=pById(3)||pById(13);
+  return kgUnitPrice(p||{price:chaashuPrice(),priceUnit:'10kg'});
+}
+// 発注アイテム1件の見積り金額（店舗発注一覧・履歴・配送待ち一覧で共通利用）
+// kg発注商品はkgUnitPrice()経由で単価基準を尊重し、チャーシュー以外のkg商品にも正しく対応する
+function itemEstimate(i){
+  if(i.pid==='chaashu') return chaashuUnitPrice()*(parseFloat(i.qty)||0);
+  const p=pById(i.pid);
+  if(!p) return 0;
+  if(p.orderUnit==='kg') return kgUnitPrice(p)*(parseFloat(i.qty)||0);
+  return (p.price||0)*(parseFloat(i.qty)||0);
 }
 function bstat(s){return{active:'<span class="badge bg">有効</span>',expiring:'<span class="badge ba">期限間近</span>',expired:'<span class="badge br">期限切れ</span>',depleted:'<span class="badge bp">使い切り</span>'}[s]||s;}
 function storTag(s){const c=s==='冷凍'?'stor-frz':s==='常温'?'stor-amb':'stor-ref';return`<span class="stor-tag ${c}">${s}</span>`;}
@@ -1069,11 +1124,8 @@ function shopOrderTab(tab,el){
 function renderShopHistory(){
   const myOrders=[...orders].filter(o=>o.role===role).sort((a,b)=>b.at.localeCompare(a.at));
   const html=myOrders.length===0?'<div class="empty">発注履歴はありません</div>':myOrders.map(o=>{
-    const total=o.items.reduce((s,i)=>{
-      if(i.pid==='chaashu') return s+(chaashuPrice()/10*i.qty);
-      const p=pById(i.pid);return s+(p?p.price*i.qty:0);
-    },0);
-    const inames=o.items.map(i=>i.pid==='chaashu'?`チャーシュー ×${i.qty}`:`${pName(i.pid)} ×${i.qty}`).join('、');
+    const total=o.items.reduce((s,i)=>s+itemEstimate(i),0);
+    const inames=o.items.map(i=>`${itemLabel(i)} ×${i.qty}`).join('、');
     const statusBadge=o.status==='delivered'?'<span class="badge bg">配送完了</span>':'<span class="badge bb">受付中</span>';
     // 変更履歴があれば表示
     const historyHtml=(o.editHistory||[]).map(h=>`
@@ -1111,11 +1163,12 @@ function submitOrder(){
   products.forEach(p=>{
     if(CHAASHU_IDS.includes(p.id)) return;
     const v=parseInt(document.getElementById('oq-'+p.id)?.value)||0;
-    if(v>0)items.push({pid:p.id,qty:v});
+    // 商品名・パウチ番号をこの時点で保存しておく（後でマスタから商品が削除・編集されても表示が壊れないように）
+    if(v>0)items.push({pid:p.id,qty:v,productName:p.name,pouch:p.pouch});
   });
   // チャーシューは統合入力 → pidは'chaashu'でセントラルがロット割当時に使い分け
   const cqty=parseInt(document.getElementById('oq-chaashu')?.value)||0;
-  if(cqty>0)items.push({pid:'chaashu',qty:cqty,productName:'チャーシュー'});
+  if(cqty>0)items.push({pid:'chaashu',qty:cqty,productName:'チャーシュー',pouch:'#103TTMM'});
   if(!items.length){alert('発注数を入力してください');return;}
   const note=document.getElementById('o-note').value.trim();
   const newOrder={id:Date.now(),role,shop:RNAMES[role],date,items,note,status:'pending',at:td};
@@ -1134,11 +1187,8 @@ function oTab(tab,el){
 }
 function renderCKOrders(){
   const render=os=>os.map(o=>{
-    const total=o.items.reduce((s,i)=>{
-      if(i.pid==='chaashu') return s+(chaashuPrice()/10*i.qty);
-      const p=pById(i.pid);return s+(p?p.price*i.qty:0);
-    },0);
-    const inames=o.items.map(i=>i.pid==='chaashu'?`チャーシュー ×${i.qty}`:`${pName(i.pid)} ×${i.qty}`).join('、');
+    const total=o.items.reduce((s,i)=>s+itemEstimate(i),0);
+    const inames=o.items.map(i=>`${itemLabel(i)} ×${i.qty}`).join('、');
     const editBadge=(o.editHistory&&o.editHistory.length>0)
       ?`<span class="badge ba" style="font-size:10px">✏ ${o.editHistory.length}回修正</span>`:'';
     const lastEdit=o.editHistory?.slice(-1)[0];
@@ -1307,11 +1357,8 @@ function renderDelivery(){
   const pend=orders.filter(o=>o.status==='pending');
   document.getElementById('del-list').innerHTML=pend.length===0?'<div class="empty">配送待ちの発注はありません</div>':
     pend.map(o=>{
-      const total=o.items.reduce((s,i)=>{
-        if(i.pid==='chaashu') return s+(chaashuPrice()/10*i.qty);
-        const p=pById(i.pid);return s+(p?p.price*i.qty:0);
-      },0);
-      const inames=o.items.map(i=>i.pid==='chaashu'?`チャーシュー ×${i.qty}`:`${pName(i.pid)} ×${i.qty}`).join('、');
+      const total=o.items.reduce((s,i)=>s+itemEstimate(i),0);
+      const inames=o.items.map(i=>`${itemLabel(i)} ×${i.qty}`).join('、');
       const editBadge=(o.editHistory&&o.editHistory.length>0)?`<span class="badge ba" style="font-size:10px;margin-left:6px">✏ ${o.editHistory.length}回修正</span>`:'';
       const lastEdit=o.editHistory?.slice(-1)[0];
       const editDetail=lastEdit?`<div style="font-size:11px;color:var(--am);margin-top:3px">最終修正: ${lastEdit.at} — ${lastEdit.changes.map(c=>`${c.name} ${c.before}→${c.after}`).join(' / ')}</div>`:'';
@@ -1352,7 +1399,7 @@ function reprintSlip(deliveryId){
   const rows=(d.items||[]).map(i=>{
     const p=pById(i.pid);
     const name=i.pid==='chaashu'?'チャーシュー':(p?.name||i.productName||`ID:${i.pid}`);
-    const pouch=i.pid==='chaashu'?'#103TTMM':(p?.pouch||'');
+    const pouch=itemPouch(i)||(p?.pouch||'');
     const lotStr=(i.used||[]).map(u=>u.code).join(', ');
     return`<tr><td>${name}</td><td>${pouch}</td><td>${i.qty}</td><td>${lotStr}</td>
       <td>${eur(parseFloat(i.price)||0)}</td><td style="font-weight:600">${eur((parseFloat(i.price)||0)*(parseFloat(i.qty)||0))}</td></tr>`;
@@ -1406,13 +1453,13 @@ function createSlip(oid){
     return{item,used,short:isKg?0:need,isKg};
   });
 
-  // 合計はkg商品をkg単価で計算
+  // 合計はkg商品を単価基準(priceUnit)に応じて計算（チャーシュー以外のkg商品にも対応）
   const grand=asn.reduce((s,{item,isChaashu,isKg})=>{
     if(isChaashu){
-      return s+(chaashuPrice()/10)*item.qty; // 10kg単価÷10×kg数（商品マスタから取得）
+      return s+chaashuUnitPrice()*item.qty;
     }
     const p=pById(item.pid);
-    if(isKg&&p) return s+(p.price/10)*item.qty;
+    if(isKg&&p) return s+kgUnitPrice(p)*item.qty;
     return s+(p?p.price*item.qty:0);
   },0);
 
@@ -1431,9 +1478,11 @@ function createSlip(oid){
       <thead><tr><th>商品名</th><th>パウチ番号</th><th>発注</th><th>割当ロット</th><th>消費期限</th><th>単価(€)</th><th>金額(€)</th><th style="color:var(--am)">積み込み温度(℃)</th></tr></thead><tbody>`;
   asn.forEach(({item,used,short,isChaashu,isKg})=>{
     const p=isChaashu?{name:'チャーシュー',pouch:'#103TTMM',price:chaashuPrice(),unit:'パウチ',vol:'10kg',priceUnit:'10kg',orderUnit:'kg'}:pById(item.pid);
-    // 金額計算：kg発注商品は10kg単価÷10×kg数
+    // 金額計算：kg発注商品は単価基準(priceUnit: 10kg/1kg/個)を尊重して換算する
     const unitPrice=p?.price||0;
-    const lt=isChaashu?(unitPrice/10)*item.qty : isKg?(unitPrice/10)*item.qty : unitPrice*item.qty;
+    const perKg=isChaashu?chaashuUnitPrice():(isKg?kgUnitPrice(p):unitPrice);
+    const lt=isChaashu?perKg*item.qty : isKg?perKg*item.qty : unitPrice*item.qty;
+    const priceLabel=(p?.priceUnit||'10kg')==='10kg'?'/10kg':((p?.priceUnit)==='1kg'?'/1kg':'');
     const tempInput=`<input type="number" step="0.1" class="qinp" style="width:72px" id="dt-${item.pid}" placeholder="℃">`;
 
     if(isChaashu||isKg){
@@ -1449,7 +1498,7 @@ function createSlip(oid){
         </td>
         <td>${ll}</td>
         <td>${el}</td>
-        <td>${eur(unitPrice)}<span style="font-size:10px;color:var(--tx3)">/10kg</span></td>
+        <td>${eur(unitPrice)}<span style="font-size:10px;color:var(--tx3)">${priceLabel}</span></td>
         <td style="font-weight:600">${eur(lt)}</td>
         <td>${tempInput}</td>
       </tr>`;
@@ -1495,11 +1544,11 @@ function completeDelivery(){
     if(isChaashu){
       al=[...aLots(3),...aLots(13)].sort((a,b)=>sortDate(a).localeCompare(sortDate(b)));
       actualPouches=parseInt(document.getElementById('pouches-chaashu')?.value)||0;
-      priceForRecord=(chaashuPrice()/10)*item.qty;
+      priceForRecord=chaashuUnitPrice()*item.qty;
     } else if(isKg){
       al=aLots(item.pid);
       actualPouches=parseInt(document.getElementById('pouches-'+item.pid)?.value)||0;
-      priceForRecord=((p?.price||0)/10)*item.qty;
+      priceForRecord=kgUnitPrice(p)*item.qty;
     } else {
       al=aLots(item.pid);
       actualPouches=item.qty;
@@ -1513,13 +1562,16 @@ function completeDelivery(){
       qty:isKg?item.qty:actualPouches,
       actualPouches:isKg?actualPouches:undefined,
       // 保存する単価は「実際にqtyと掛け合わせて合計になる単位」に統一する。
-      // kg発注商品は10kgあたり単価を10で割った"1kgあたり単価"を保存し、qty(kg数)と直接掛け算すれば
+      // kg発注商品は単価基準(priceUnit)を尊重した"1kgあたり単価"を保存し、qty(kg数)と直接掛け算すれば
       // 月次集計・配送履歴・CSV・伝票再印刷のどこでも特別扱いせず正しい金額になるようにする。
-      price:isKg?((isChaashu?chaashuPrice():(p?.price||0))/10):(p?.price||0),
+      price:isChaashu?chaashuUnitPrice():(isKg?kgUnitPrice(p):(p?.price||0)),
       priceUnit:isKg?'1kg':'unit',
       lineTotal:priceForRecord,
       used,
-      productName:isChaashu?'チャーシュー':undefined,
+      // 商品名・パウチ番号はこの時点でも保存しておく（後でマスタから商品が削除・編集されても
+      // 配送履歴・伝票再印刷で表示が壊れないように、発注時点の値 → 現在のマスタ の順で優先）
+      productName:isChaashu?'チャーシュー':(item.productName||p?.name||''),
+      pouch:isChaashu?'#103TTMM':(item.pouch||p?.pouch||''),
       departTemp:itemTemps[item.pid]||'—',
     });
   });
@@ -1610,20 +1662,14 @@ function submitTransfer(){
   if(!pid||!qty||!date){alert('商品・数量・日付は必須です');return;}
   if(from===to){alert('送り出し元と受け取り先が同じです');return;}
   const p=pById(pid);
-  // kg発注商品（チャーシュー等）は「10kgあたり単価 ÷ 10 × kg数」で換算する
+  // kg発注商品（チャーシュー等）は共通ヘルパーで単価基準(priceUnit)を尊重して換算する
   const isKg = p?.orderUnit === 'kg';
-  const priceUnit = p?.priceUnit || '10kg';
-  let unitPriceForCalc = p?.price || 0;
-  if (isKg) {
-    if (priceUnit === '10kg') unitPriceForCalc = (p.price||0) / 10;
-    else if (priceUnit === 'unit') unitPriceForCalc = p.price || 0;
-    // priceUnit === '1kg' の場合はそのまま
-  }
+  const unitPriceForCalc = isKg ? kgUnitPrice(p) : (p?.price||0);
   const lineTotal = unitPriceForCalc * qty;
   const rec={
     id:Date.now(), pid, productName:p?.name||'', qty, date, from, to, note,
     price: unitPriceForCalc,        // 記録される単価は「実際に使う換算後の単価（例: 1kgあたり）」
-    priceBasis: isKg ? (priceUnit+'換算済み') : '個/パウチ単価',
+    priceBasis: isKg ? ((p?.priceUnit||'10kg')+'換算済み') : '個/パウチ単価',
     lineTotal,
     at: td,
   };
@@ -1703,7 +1749,7 @@ function printArrivalRecord(deliveryId){
   const rows=(d.items||[]).map(i=>{
     const p=pById(i.pid);
     const name=i.pid==='chaashu'?'チャーシュー':(p?.name||i.productName||`ID:${i.pid}`);
-    const pouch=i.pid==='chaashu'?'#103TTMM':(p?.pouch||'');
+    const pouch=itemPouch(i)||(p?.pouch||'');
     const pidStr=String(i.pid);
     const arr=tr?(tr.itemTemps?.[pidStr]||tr.itemTemps?.[i.pid]||'—'):'—';
     const lotStr=(i.used||[]).map(u=>u.code||u).join(', ')||'—';
@@ -1827,7 +1873,7 @@ function renderMonthly(){
     (d.items||[]).forEach(i=>{
       let price=parseFloat(i.price)||0;
       if(!price){
-        if(i.pid==='chaashu') price=chaashuPrice()/10;
+        if(i.pid==='chaashu') price=chaashuUnitPrice();
         else{const p=pById(i.pid);price=p?.price||0;}
       }
       const qty=parseFloat(i.qty)||0;
@@ -1853,7 +1899,7 @@ function renderMonthly(){
   all.forEach(d=>(d.items||[]).forEach(i=>{
     let price=parseFloat(i.price)||0;
     if(!price){
-      if(i.pid==='chaashu') price=chaashuPrice()/10;
+      if(i.pid==='chaashu') price=chaashuUnitPrice();
       else{const p=pById(i.pid);price=p?.price||0;}
     }
     const p=pById(i.pid);
@@ -1975,7 +2021,7 @@ function openOrderEditModal(oid){
   // 数量テーブル
   let rows='';
   o.items.forEach(i=>{
-    const name=i.pid==='chaashu'?'チャーシュー':pName(i.pid);
+    const name=itemLabel(i);
     rows+=`<tr>
       <td>${name}</td>
       <td style="font-weight:600">${i.qty}</td>
@@ -2012,7 +2058,7 @@ function saveOrderEdit(){
     if(!el)return;
     const newQty=parseInt(el.value)||0;
     if(newQty!==i.qty){
-      const name=i.pid==='chaashu'?'チャーシュー':pName(i.pid);
+      const name=itemLabel(i);
       changes.push({name,before:i.qty,after:newQty,pid:i.pid});
       i.qty=newQty; // 数量更新
     }

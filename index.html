@@ -258,6 +258,7 @@ textarea.fi{resize:vertical;min-height:72px}
     <div class="mni ck-only" onclick="go('delivery',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M1 3h15v13H1zM16 8h4l3 3v5h-7V8z"/></svg>配送</div>
     <div class="mni ck-only" onclick="go('master',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><circle cx="12" cy="12" r="3"/></svg>マスタ</div>
     <div class="mni acc-only" onclick="go('monthly',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>月次</div>
+    <div class="mni" onclick="logout()" style="color:var(--tx3)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>ログアウト</div>
   </div>
 
   <div class="main">
@@ -735,6 +736,7 @@ const RNAMES={ck:'セントラルキッチン',shop1:'本店',shop2:'ケルン�
 const SHOPS=['shop1','shop2','shop3','shop4','izakaya'];
 const SHOP_ORDER=['本店','ケルン店','ビルク店','エッセン店','居酒屋'];
 let role=null;
+let myPin=null; // ログイン時のPIN（GASへのリクエストの度に送信し、サーバー側で検証する）
 const today=new Date();
 const fmt=d=>d.toISOString().split('T')[0];
 const addD=(d,n)=>{const r=new Date(d);r.setDate(r.getDate()+n);return r;};
@@ -752,6 +754,8 @@ async function gasCall(action, data={}) {
     const params = new URLSearchParams({
       action,
       data: JSON.stringify(data),
+      role: role || '',
+      pin: myPin || '',
     });
     const res = await fetch(`${GAS_URL}?${params.toString()}`, {
       method: 'GET',
@@ -847,7 +851,7 @@ function lstatus(l){
   if(d<0)return'expired';if(d<=3)return'expiring';return'active';
 }
 function aLots(pid){
-  return lots.filter(l=>l.pid===pid&&(lstatus(l)==='active'||lstatus(l)==='expiring')&&l.rem>0)
+  return lots.filter(l=>String(l.pid)===String(pid)&&(lstatus(l)==='active'||lstatus(l)==='expiring')&&l.rem>0)
     .sort((a,b)=>sortDate(a).localeCompare(sortDate(b))); // 古い順（FIFO、納品日基準）
 }
 function stock(pid){return aLots(pid).reduce((s,l)=>s+l.rem,0);}
@@ -855,6 +859,11 @@ function pById(id){return products.find(p=>String(p.id)===String(id));}
 function pName(id){return(pById(id)||{name:'-'}).name;}
 // 納品日があればそれを使い、なければ仕込み日にフォールバック（古いデータ対応）
 function sortDate(l){return l.deliveryDate||l.mfgDate;}
+// チャーシューの単価を商品マスタから取得（ハードコード排除）
+function chaashuPrice(){
+  const p=pById(3)||pById(13)||products.find(p=>CHAASHU_IDS.includes(Number(p.id)));
+  return p?.price||22.00;
+}
 function bstat(s){return{active:'<span class="badge bg">有効</span>',expiring:'<span class="badge ba">期限間近</span>',expired:'<span class="badge br">期限切れ</span>',depleted:'<span class="badge bp">使い切り</span>'}[s]||s;}
 function storTag(s){const c=s==='冷凍'?'stor-frz':s==='常温'?'stor-amb':'stor-ref';return`<span class="stor-tag ${c}">${s}</span>`;}
 function makeCode(p,dateStr){
@@ -871,11 +880,12 @@ function tryLogin(){
   if(!r){document.getElementById('pin-err').textContent='ロールを選択してください';return;}
   if(PINS[r]!==pin){document.getElementById('pin-err').textContent='PINが正しくありません';return;}
   role=r;
+  myPin=pin; // GASへのリクエスト認証用に保持（画面には表示しない）
   document.getElementById('pin-screen').style.display='none';
   document.getElementById('app').style.display='flex';
   initApp();
 }
-function logout(){role=null;document.getElementById('pin-screen').style.display='flex';document.getElementById('app').style.display='none';['p0','p1','p2','p3'].forEach(x=>document.getElementById(x).value='');document.getElementById('pin-err').textContent='';}
+function logout(){role=null;myPin=null;document.getElementById('pin-screen').style.display='flex';document.getElementById('app').style.display='none';['p0','p1','p2','p3'].forEach(x=>document.getElementById(x).value='');document.getElementById('pin-err').textContent='';}
 
 document.addEventListener('DOMContentLoaded', function(){
   document.querySelectorAll('.pin-d').forEach((el,i,arr)=>{
@@ -1060,7 +1070,7 @@ function renderShopHistory(){
   const myOrders=[...orders].filter(o=>o.role===role).sort((a,b)=>b.at.localeCompare(a.at));
   const html=myOrders.length===0?'<div class="empty">発注履歴はありません</div>':myOrders.map(o=>{
     const total=o.items.reduce((s,i)=>{
-      if(i.pid==='chaashu') return s+(22.00*i.qty);
+      if(i.pid==='chaashu') return s+(chaashuPrice()/10*i.qty);
       const p=pById(i.pid);return s+(p?p.price*i.qty:0);
     },0);
     const inames=o.items.map(i=>i.pid==='chaashu'?`チャーシュー ×${i.qty}`:`${pName(i.pid)} ×${i.qty}`).join('、');
@@ -1125,7 +1135,7 @@ function oTab(tab,el){
 function renderCKOrders(){
   const render=os=>os.map(o=>{
     const total=o.items.reduce((s,i)=>{
-      if(i.pid==='chaashu') return s+(22.00*i.qty);
+      if(i.pid==='chaashu') return s+(chaashuPrice()/10*i.qty);
       const p=pById(i.pid);return s+(p?p.price*i.qty:0);
     },0);
     const inames=o.items.map(i=>i.pid==='chaashu'?`チャーシュー ×${i.qty}`:`${pName(i.pid)} ×${i.qty}`).join('、');
@@ -1264,7 +1274,7 @@ function renderLots(){
     if(fl.length===0){document.getElementById('lot-list').innerHTML='<div class="empty">該当なし</div>';return;}
     let html='';
     products.forEach(p=>{
-      const grp=fl.filter(l=>l.pid===p.id).sort((a,b)=>sortDate(a).localeCompare(sortDate(b)));
+      const grp=fl.filter(l=>String(l.pid)===String(p.id)).sort((a,b)=>sortDate(a).localeCompare(sortDate(b)));
       if(!grp.length)return;
       const st=stock(p.id);
       const badge=st<p.minStock?'<span class="badge br">不足</span>':st<p.minStock*2?'<span class="badge ba">少ない</span>':'<span class="badge bg">良好</span>';
@@ -1298,7 +1308,7 @@ function renderDelivery(){
   document.getElementById('del-list').innerHTML=pend.length===0?'<div class="empty">配送待ちの発注はありません</div>':
     pend.map(o=>{
       const total=o.items.reduce((s,i)=>{
-        if(i.pid==='chaashu') return s+(22.00*i.qty);
+        if(i.pid==='chaashu') return s+(chaashuPrice()/10*i.qty);
         const p=pById(i.pid);return s+(p?p.price*i.qty:0);
       },0);
       const inames=o.items.map(i=>i.pid==='chaashu'?`チャーシュー ×${i.qty}`:`${pName(i.pid)} ×${i.qty}`).join('、');
@@ -1361,7 +1371,10 @@ function reprintSlip(deliveryId){
     <tbody>${rows}</tbody>
     <tfoot><tr><td colspan="5" style="text-align:right;padding:10px 8px">合計</td><td style="padding:10px 8px;color:#1a73e8">${eur(total)}</td></tr></tfoot>
     </table>
-    <button onclick="window.print()" style="margin-top:20px;padding:10px 24px;background:#1a73e8;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨 印刷する</button>
+    <div style="margin-top:20px;display:flex;gap:10px">
+      <button onclick="window.print()" style="padding:10px 24px;background:#1a73e8;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨 印刷する</button>
+      <button onclick="window.close()" style="padding:10px 24px;background:#555;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">← 閉じる</button>
+    </div>
     </body></html>`);
   win.document.close();
 }
@@ -1396,7 +1409,7 @@ function createSlip(oid){
   // 合計はkg商品をkg単価で計算
   const grand=asn.reduce((s,{item,isChaashu,isKg})=>{
     if(isChaashu){
-      return s+(22.00/10)*item.qty; // 10kg単価÷10×kg数
+      return s+(chaashuPrice()/10)*item.qty; // 10kg単価÷10×kg数（商品マスタから取得）
     }
     const p=pById(item.pid);
     if(isKg&&p) return s+(p.price/10)*item.qty;
@@ -1417,7 +1430,7 @@ function createSlip(oid){
     <div class="slip-tw"><table>
       <thead><tr><th>商品名</th><th>パウチ番号</th><th>発注</th><th>割当ロット</th><th>消費期限</th><th>単価(€)</th><th>金額(€)</th><th style="color:var(--am)">積み込み温度(℃)</th></tr></thead><tbody>`;
   asn.forEach(({item,used,short,isChaashu,isKg})=>{
-    const p=isChaashu?{name:'チャーシュー',pouch:'#103TTMM',price:22.00,unit:'パウチ',vol:'10kg'}:pById(item.pid);
+    const p=isChaashu?{name:'チャーシュー',pouch:'#103TTMM',price:chaashuPrice(),unit:'パウチ',vol:'10kg',priceUnit:'10kg',orderUnit:'kg'}:pById(item.pid);
     // 金額計算：kg発注商品は10kg単価÷10×kg数
     const unitPrice=p?.price||0;
     const lt=isChaashu?(unitPrice/10)*item.qty : isKg?(unitPrice/10)*item.qty : unitPrice*item.qty;
@@ -1476,13 +1489,13 @@ function completeDelivery(){
 
   o.items.forEach(item=>{
     const isChaashu=item.pid==='chaashu';
-    const p=isChaashu?{price:22.00}:pById(item.pid);
+    const p=isChaashu?{price:chaashuPrice(),orderUnit:'kg',priceUnit:'10kg'}:pById(item.pid);
     const isKg=isChaashu||(p?.orderUnit==='kg');
     let al,actualPouches,priceForRecord;
     if(isChaashu){
       al=[...aLots(3),...aLots(13)].sort((a,b)=>sortDate(a).localeCompare(sortDate(b)));
       actualPouches=parseInt(document.getElementById('pouches-chaashu')?.value)||0;
-      priceForRecord=(22.00/10)*item.qty;
+      priceForRecord=(chaashuPrice()/10)*item.qty;
     } else if(isKg){
       al=aLots(item.pid);
       actualPouches=parseInt(document.getElementById('pouches-'+item.pid)?.value)||0;
@@ -1499,8 +1512,11 @@ function completeDelivery(){
       pid:item.pid,
       qty:isKg?item.qty:actualPouches,
       actualPouches:isKg?actualPouches:undefined,
-      price:isChaashu?22.00:(p?.price||0),
-      priceUnit:isKg?'10kg':'unit',
+      // 保存する単価は「実際にqtyと掛け合わせて合計になる単位」に統一する。
+      // kg発注商品は10kgあたり単価を10で割った"1kgあたり単価"を保存し、qty(kg数)と直接掛け算すれば
+      // 月次集計・配送履歴・CSV・伝票再印刷のどこでも特別扱いせず正しい金額になるようにする。
+      price:isKg?((isChaashu?chaashuPrice():(p?.price||0))/10):(p?.price||0),
+      priceUnit:isKg?'1kg':'unit',
       lineTotal:priceForRecord,
       used,
       productName:isChaashu?'チャーシュー':undefined,
@@ -1543,7 +1559,10 @@ function printSlipForCK(rec,o){
     <table><thead><tr><th>商品名</th><th>数量</th><th>ロット番号</th><th>積み込み温度</th><th>到着温度（店舗記入欄）</th></tr></thead>
     <tbody>${rows}</tbody></table>
     <div class="sig"><div class="sig-box">積み込み担当者サイン</div><div class="sig-box">確認者サイン</div></div>
-    <button onclick="window.print()" style="margin-top:20px;padding:10px 24px;background:#1a73e8;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨 印刷する</button>
+    <div style="margin-top:20px;display:flex;gap:10px">
+      <button onclick="window.print()" style="padding:10px 24px;background:#1a73e8;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨 印刷する</button>
+      <button onclick="window.close()" style="padding:10px 24px;background:#555;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">← 閉じる</button>
+    </div>
     </body></html>`);
   win.document.close();
 }
@@ -1591,13 +1610,29 @@ function submitTransfer(){
   if(!pid||!qty||!date){alert('商品・数量・日付は必須です');return;}
   if(from===to){alert('送り出し元と受け取り先が同じです');return;}
   const p=pById(pid);
-  const rec={id:Date.now(),pid,productName:p?.name||'',qty,date,from,to,note,price:p?.price||0,at:td};
+  // kg発注商品（チャーシュー等）は「10kgあたり単価 ÷ 10 × kg数」で換算する
+  const isKg = p?.orderUnit === 'kg';
+  const priceUnit = p?.priceUnit || '10kg';
+  let unitPriceForCalc = p?.price || 0;
+  if (isKg) {
+    if (priceUnit === '10kg') unitPriceForCalc = (p.price||0) / 10;
+    else if (priceUnit === 'unit') unitPriceForCalc = p.price || 0;
+    // priceUnit === '1kg' の場合はそのまま
+  }
+  const lineTotal = unitPriceForCalc * qty;
+  const rec={
+    id:Date.now(), pid, productName:p?.name||'', qty, date, from, to, note,
+    price: unitPriceForCalc,        // 記録される単価は「実際に使う換算後の単価（例: 1kgあたり）」
+    priceBasis: isKg ? (priceUnit+'換算済み') : '個/パウチ単価',
+    lineTotal,
+    at: td,
+  };
   transfers.push(rec);
   gasCall('saveTransfer',rec);
   document.getElementById('tr-qty').value='';
   document.getElementById('tr-note').value='';
   renderTransferProduct();
-  alert(`${p?.name} ${qty}個の移動を記録しました\n${from} → ${to}`);
+  alert(`${p?.name} ${qty}${isKg?'kg':'個'}の移動を記録しました（${eur(lineTotal)}）\n${from} → ${to}`);
 }
 
 function renderTempPage(){
@@ -1698,7 +1733,10 @@ function printArrivalRecord(deliveryId){
     <table><thead><tr><th>商品名</th><th>パウチ番号</th><th>数量</th><th>ロット番号</th><th>積み込み温度</th><th>到着温度</th></tr></thead>
     <tbody>${rows||'<tr><td colspan="6">データなし</td></tr>'}</tbody></table>
     <div class="sig"><div class="sig-box">受け取り担当者サイン</div><div class="sig-box">確認者サイン</div></div>
-    <button onclick="window.print()" style="margin-top:20px;padding:10px 24px;background:#1a73e8;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨 印刷する</button>
+    <div style="margin-top:20px;display:flex;gap:10px">
+      <button onclick="window.print()" style="padding:10px 24px;background:#1a73e8;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨 印刷する</button>
+      <button onclick="window.close()" style="padding:10px 24px;background:#555;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">← 閉じる</button>
+    </div>
     </body></html>`);
   win.document.close();
 }
@@ -1789,7 +1827,7 @@ function renderMonthly(){
     (d.items||[]).forEach(i=>{
       let price=parseFloat(i.price)||0;
       if(!price){
-        if(i.pid==='chaashu') price=22.00;
+        if(i.pid==='chaashu') price=chaashuPrice()/10;
         else{const p=pById(i.pid);price=p?.price||0;}
       }
       const qty=parseFloat(i.qty)||0;
@@ -1815,7 +1853,7 @@ function renderMonthly(){
   all.forEach(d=>(d.items||[]).forEach(i=>{
     let price=parseFloat(i.price)||0;
     if(!price){
-      if(i.pid==='chaashu') price=22.00;
+      if(i.pid==='chaashu') price=chaashuPrice()/10;
       else{const p=pById(i.pid);price=p?.price||0;}
     }
     const p=pById(i.pid);
@@ -1995,7 +2033,7 @@ function saveOrderEdit(){
   o.note=newNote;
 
   // GASに保存
-  gasCall('updateOrder',{id:o.id,date:o.date,note:o.note,items:o.items,editHistory:o.editHistory});
+  gasCall('updateOrder',{id:o.id,role:o.role,date:o.date,note:o.note,items:o.items,editHistory:o.editHistory});
 
   closeOrderEditModal();
   renderShopHistory();

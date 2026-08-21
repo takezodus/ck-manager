@@ -469,11 +469,8 @@ textarea.fi{resize:vertical;min-height:72px}
       <!-- 配送履歴 -->
       <div id="del-history-area" style="display:none">
         <div class="card">
-          <div class="ch"><span class="ct">配送履歴（クリックで伝票再印刷）</span></div>
-          <div class="tw"><table>
-            <thead><tr><th>納品日</th><th>伝票No.</th><th>店舗</th><th>合計(€)</th><th>配送者</th><th>再印刷</th></tr></thead>
-            <tbody id="del-history-tbody"></tbody>
-          </table></div>
+          <div class="ch"><span class="ct">配送履歴（月ごと・クリックで明細表示／再印刷）</span></div>
+          <div id="del-history-list"></div>
         </div>
       </div>
       <!-- 店舗間移動 -->
@@ -884,6 +881,37 @@ function itemPouch(i){
   if(i.pid==='chaashu') return i.pouch||'#103TTMM';
   return i.pouch || (pById(i.pid)?.pouch) || '';
 }
+// ============================================================
+// プルダウン(開閉式)一覧のための共通ヘルパー
+// ============================================================
+// 日付フィールドの値(YYYY-MM-DD)から年月ごとにグループ化し、新しい月から順に並べる
+function groupByMonth(list, dateField){
+  const groups={};
+  list.forEach(item=>{
+    const key=String(item[dateField]||'').slice(0,7); // 'YYYY-MM'
+    if(!groups[key]) groups[key]=[];
+    groups[key].push(item);
+  });
+  return Object.keys(groups).sort((a,b)=>b.localeCompare(a)).map(key=>({
+    key, label: monthLabelFromKey(key), items: groups[key],
+  }));
+}
+function monthLabelFromKey(key){
+  const parts=String(key).split('-');
+  const y=parseInt(parts[0]), m=parseInt(parts[1]);
+  if(!y||!m) return key||'日付不明';
+  return `${y}年${m}月`;
+}
+// クリックされた見出し要素の「次の要素（詳細部分）」の表示/非表示を切り替える。
+// 見出し内に class="chev" があれば矢印(▶/▼)も連動して切り替える。
+function toggleDetail(headerEl){
+  const body=headerEl.nextElementSibling;
+  if(!body) return;
+  const nowOpen=body.style.display!=='none';
+  body.style.display=nowOpen?'none':'block';
+  const chev=headerEl.querySelector('.chev');
+  if(chev) chev.textContent=nowOpen?'▶':'▼';
+}
 // 納品日があればそれを使い、なければ仕込み日にフォールバック（古いデータ対応）
 function sortDate(l){return l.deliveryDate||l.mfgDate;}
 // チャーシューの単価を商品マスタから取得（ハードコード排除）
@@ -1186,7 +1214,8 @@ function oTab(tab,el){
   renderCKOrders();
 }
 function renderCKOrders(){
-  const render=os=>os.map(o=>{
+  // 受付中（従来通り：常に明細まで表示）
+  const renderPending=os=>os.map(o=>{
     const total=o.items.reduce((s,i)=>s+itemEstimate(i),0);
     const inames=o.items.map(i=>`${itemLabel(i)} ×${i.qty}`).join('、');
     const editBadge=(o.editHistory&&o.editHistory.length>0)
@@ -1205,7 +1234,7 @@ function renderCKOrders(){
         </div>
         <div style="display:flex;gap:6px;align-items:center">
           <span style="font-size:13px;color:var(--tx2)">合計 <strong style="color:var(--tx)">${eur(total)}</strong></span>
-          ${o.status==='pending'?`<button class="btn btn-sm btn-p" onclick="goSlip(${o.id})">伝票作成</button>`:'<span class="badge bg">配送完了</span>'}
+          <button class="btn btn-sm btn-p" onclick="goSlip(${o.id})">伝票作成</button>
         </div>
       </div>
       <div style="font-size:12px;color:var(--tx2)">${inames}</div>
@@ -1213,9 +1242,54 @@ function renderCKOrders(){
       ${editDetail}
     </div>`;
   }).join('');
+
+  // 完了済み：月ごとにプルダウン、各件の明細もプルダウン（クリックで開閉）
+  const renderDoneGrouped=os=>{
+    const groups=groupByMonth(os,'date');
+    if(!groups.length) return '';
+    return groups.map((g,gi)=>{
+      const entries=g.items.map(o=>{
+        const total=o.items.reduce((s,i)=>s+itemEstimate(i),0);
+        const inames=o.items.map(i=>`${itemLabel(i)} ×${i.qty}`).join('、');
+        const editBadge=(o.editHistory&&o.editHistory.length>0)
+          ?`<span class="badge ba" style="font-size:10px">✏ ${o.editHistory.length}回修正</span>`:'';
+        const lastEdit=o.editHistory?.slice(-1)[0];
+        const editDetail=lastEdit?`<div style="font-size:11px;color:var(--am);margin-top:3px">
+          最終修正: ${lastEdit.at} — ${lastEdit.changes.map(c=>`${c.name} ${c.before}→${c.after}`).join(' / ')}
+        </div>`:'';
+        return`<div style="border-bottom:1px solid var(--bdr)">
+          <div style="padding:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap" onclick="toggleDetail(this)">
+            <div>
+              <span class="chev" style="display:inline-block;width:12px;color:var(--tx3)">▶</span>
+              <span style="font-weight:600">${o.shop}</span>
+              <span class="badge bb" style="margin-left:8px">${o.date} 納品</span>
+              ${editBadge}
+              <span style="font-size:11px;color:var(--tx3);margin-left:6px">受付: ${o.at}</span>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <span style="font-size:13px;color:var(--tx2)">合計 <strong style="color:var(--tx)">${eur(total)}</strong></span>
+              <span class="badge bg">配送完了</span>
+            </div>
+          </div>
+          <div style="display:none;padding:0 13px 13px 13px">
+            <div style="font-size:12px;color:var(--tx2)">${inames}</div>
+            ${o.note?`<div style="margin-top:6px;font-size:12px;background:var(--sur2);border-radius:5px;padding:6px 10px;color:var(--tx2)">📝 備考: ${o.note}</div>`:''}
+            ${editDetail}
+          </div>
+        </div>`;
+      }).join('');
+      return`<div class="lot-group-hd" style="cursor:pointer" onclick="toggleDetail(this)">
+        <span class="chev" style="display:inline-block;width:12px">${gi===0?'▼':'▶'}</span>
+        <span style="font-size:12px;color:var(--tx)">${g.label}</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--tx3)">${g.items.length}件</span>
+      </div>
+      <div style="display:${gi===0?'block':'none'}">${entries}</div>`;
+    }).join('');
+  };
+
   const pend=orders.filter(o=>o.status==='pending'),done=orders.filter(o=>o.status==='delivered');
-  document.getElementById('o-pending').innerHTML=pend.length?render(pend):'<div class="empty">受付中の発注はありません</div>';
-  document.getElementById('o-done').innerHTML=done.length?render(done):'<div class="empty">完了済みの発注はありません</div>';
+  document.getElementById('o-pending').innerHTML=pend.length?renderPending(pend):'<div class="empty">受付中の発注はありません</div>';
+  document.getElementById('o-done').innerHTML=done.length?renderDoneGrouped(done):'<div class="empty">完了済みの発注はありません</div>';
 }
 
 // ===== MESSAGES =====
@@ -1376,20 +1450,52 @@ function renderDelivery(){
 }
 
 function renderDeliveryHistory(){
-  const sorted=[...deliveries].sort((a,b)=>b.date.localeCompare(a.date));
-  const rows=sorted.map(d=>{
-    const total=(d.items||[]).reduce((s,i)=>s+(parseFloat(i.price)||0)*(parseFloat(i.qty)||0),0);
-    return`<tr>
-      <td>${d.date}</td>
-      <td><span class="lc">${d.slipNo||'—'}</span></td>
-      <td>${d.shop}</td>
-      <td style="font-weight:600">${eur(total)}</td>
-      <td style="color:var(--tx2)">${d.driver||'—'}</td>
-      <td><button class="btn btn-sm" onclick="reprintSlip(${d.id})">伝票</button>
-          <button class="btn btn-sm" style="margin-left:4px" onclick="reprintCKSlip(${d.id})">CK控え</button></td>
-    </tr>`;
+  const groups=groupByMonth(deliveries,'date');
+  if(!groups.length){
+    document.getElementById('del-history-list').innerHTML='<div class="empty">データなし</div>';
+    return;
+  }
+  const html=groups.map((g,gi)=>{
+    const sortedItems=[...g.items].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+    const entries=sortedItems.map(d=>{
+      const total=(d.items||[]).reduce((s,i)=>s+(parseFloat(i.price)||0)*(parseFloat(i.qty)||0),0);
+      const itemRows=(d.items||[]).map(i=>{
+        const pouch=itemPouch(i);
+        const name=itemLabel(i);
+        const lineTotal=(parseFloat(i.price)||0)*(parseFloat(i.qty)||0);
+        return`<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--tx2);padding:3px 0">
+          <span>${name}${pouch?` <span class="lc" style="font-size:10px">${pouch}</span>`:''} ×${i.qty}</span>
+          <span>${eur(lineTotal)}</span>
+        </div>`;
+      }).join('');
+      return`<div style="border-bottom:1px solid var(--bdr)">
+        <div style="padding:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap" onclick="toggleDetail(this)">
+          <div>
+            <span class="chev" style="display:inline-block;width:12px;color:var(--tx3)">▶</span>
+            <span style="font-weight:600">${d.shop}</span>
+            <span class="badge bb" style="margin-left:8px">${d.date}</span>
+            <span class="lc" style="margin-left:6px">${d.slipNo||'—'}</span>
+            <span style="font-size:11px;color:var(--tx2);margin-left:6px">配送者: ${d.driver||'—'}</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="font-weight:600">${eur(total)}</span>
+            <button class="btn btn-sm" onclick="event.stopPropagation();reprintSlip(${d.id})">伝票</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();reprintCKSlip(${d.id})">CK控え</button>
+          </div>
+        </div>
+        <div style="display:none;padding:0 13px 13px 13px">
+          ${itemRows||'<div class="empty" style="padding:8px 0">明細なし</div>'}
+        </div>
+      </div>`;
+    }).join('');
+    return`<div class="lot-group-hd" style="cursor:pointer" onclick="toggleDetail(this)">
+      <span class="chev" style="display:inline-block;width:12px">${gi===0?'▼':'▶'}</span>
+      <span style="font-size:12px;color:var(--tx)">${g.label}</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--tx3)">${g.items.length}件</span>
+    </div>
+    <div style="display:${gi===0?'block':'none'}">${entries}</div>`;
   }).join('');
-  document.getElementById('del-history-tbody').innerHTML=rows||'<tr><td colspan="6" class="empty">データなし</td></tr>';
+  document.getElementById('del-history-list').innerHTML=html;
 }
 
 function reprintSlip(deliveryId){

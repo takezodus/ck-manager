@@ -28,8 +28,8 @@ body{background:var(--bg);color:var(--tx);font-family:var(--font);font-size:14px
 .pin-logo{font-size:20px;font-weight:700;margin-bottom:4px}
 .pin-sub{font-size:12px;color:var(--tx2);margin-bottom:22px}
 .pin-sel select{width:100%;background:var(--sur2);border:1px solid var(--bdr2);color:var(--tx);border-radius:var(--rsm);padding:10px 12px;font-size:13px;font-family:var(--font);margin-bottom:14px}
-.pin-inp{display:flex;gap:10px;justify-content:center;margin-bottom:20px}
-.pin-d{width:52px;height:60px;background:var(--sur2);border:1px solid var(--bdr2);border-radius:var(--r);font-size:22px;font-family:var(--mono);color:var(--tx);text-align:center;outline:none;transition:border-color .15s}
+.pin-inp{display:flex;gap:6px;justify-content:center;margin-bottom:20px}
+.pin-d{width:38px;height:54px;background:var(--sur2);border:1px solid var(--bdr2);border-radius:var(--r);font-size:22px;font-family:var(--mono);color:var(--tx);text-align:center;outline:none;transition:border-color .15s}
 .pin-d:focus{border-color:var(--ac)}
 .pin-btn{width:100%;background:var(--ac);color:#fff;border:none;border-radius:var(--r);padding:12px;font-size:14px;font-weight:600;font-family:var(--font);cursor:pointer}
 .pin-btn:hover{opacity:.85}
@@ -196,6 +196,8 @@ textarea.fi{resize:vertical;min-height:72px}
       <input class="pin-d" type="password" maxlength="1" id="p1" inputmode="numeric">
       <input class="pin-d" type="password" maxlength="1" id="p2" inputmode="numeric">
       <input class="pin-d" type="password" maxlength="1" id="p3" inputmode="numeric">
+      <input class="pin-d" type="password" maxlength="1" id="p4" inputmode="numeric">
+      <input class="pin-d" type="password" maxlength="1" id="p5" inputmode="numeric">
     </div>
     <button class="pin-btn" onclick="tryLogin()">ログイン</button>
     <div class="pin-err" id="pin-err"></div>
@@ -729,6 +731,9 @@ textarea.fi{resize:vertical;min-height:72px}
 // ============================================================
 // CK Manager — 更新履歴 (このファイルを見れば何が直っているか分かるようにする)
 // ============================================================
+// [2026-10-26] v1.6
+//   - PINを画面側(index.html)から削除。公開ページのソースから全員のPINが読める状態だった。
+//     ログイン時の照合はGAS側のloginアクションで行う（要GAS側もv1.6以降）。PINは6桁に変更。
 // [2026-08-21] v1.5
 //   - 配送履歴の各行にも「完全削除」ボタンを追加(hardDeleteDelivery)。壊れた/重複した配送記録を
 //     完全に削除できるように(要GAS側もv1.5以降、deleteDeliveryアクション対応)。
@@ -763,7 +768,8 @@ textarea.fi{resize:vertical;min-height:72px}
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbx_6irB0j5s1vKIfosK0n0xn2cmULN1GtOOdg2lwByORVP5BcKW1H-FH-UF3MxAIAKD/exec';
 // ============================================================
 
-const PINS={ck:'1000',shop1:'1001',shop2:'1002',shop3:'1003',shop4:'1004',izakaya:'1005',accounting:'9999'};
+// PINは公開ページに置かず、GAS側（Code.gs）だけで照合する。ここに書くと誰でもソースから読めてしまう。
+const PIN_IDS=['p0','p1','p2','p3','p4','p5'];
 const RNAMES={ck:'セントラルキッチン',shop1:'本店',shop2:'ケルン店',shop3:'ビルク店',shop4:'エッセン店',izakaya:'居酒屋',accounting:'経理'};
 const SHOPS=['shop1','shop2','shop3','shop4','izakaya'];
 const SHOP_ORDER=['本店','ケルン店','ビルク店','エッセン店','居酒屋'];
@@ -1024,18 +1030,38 @@ function makeCode(p,dateStr){
 }
 
 // ===== PIN =====
-function tryLogin(){
+let loggingIn=false;
+async function tryLogin(){
+  if(loggingIn) return;
+  const errEl=document.getElementById('pin-err');
   const r=document.getElementById('pin-role').value;
-  const pin=['p0','p1','p2','p3'].map(x=>document.getElementById(x).value).join('');
-  if(!r){document.getElementById('pin-err').textContent='ロールを選択してください';return;}
-  if(PINS[r]!==pin){document.getElementById('pin-err').textContent='PINが正しくありません';return;}
+  const pin=PIN_IDS.map(x=>document.getElementById(x).value).join('');
+  if(!r){errEl.textContent='ロールを選択してください';return;}
+  if(pin.length!==PIN_IDS.length){errEl.textContent='PINを'+PIN_IDS.length+'桁すべて入力してください';return;}
+  // PINの照合はGAS側で行う（画面側では正誤を判定しない）
+  loggingIn=true; errEl.textContent='確認中…';
+  try{
+    const params=new URLSearchParams({action:'login',data:'{}',role:r,pin});
+    const res=await fetch(`${GAS_URL}?${params.toString()}`,{method:'GET',redirect:'follow'});
+    const json=JSON.parse(await res.text());
+    if(!json.ok){
+      errEl.textContent=json.error||'PINが正しくありません';
+      PIN_IDS.forEach(x=>document.getElementById(x).value='');
+      document.getElementById('p0').focus();
+      return;
+    }
+  }catch(e){
+    errEl.textContent='サーバーに接続できませんでした。通信状況を確認してください';
+    return;
+  }finally{ loggingIn=false; }
+  errEl.textContent='';
   role=r;
   myPin=pin; // GASへのリクエスト認証用に保持（画面には表示しない）
   document.getElementById('pin-screen').style.display='none';
   document.getElementById('app').style.display='flex';
   initApp();
 }
-function logout(){role=null;myPin=null;stopAutoRefresh();document.getElementById('pin-screen').style.display='flex';document.getElementById('app').style.display='none';['p0','p1','p2','p3'].forEach(x=>document.getElementById(x).value='');document.getElementById('pin-err').textContent='';}
+function logout(){role=null;myPin=null;stopAutoRefresh();document.getElementById('pin-screen').style.display='flex';document.getElementById('app').style.display='none';PIN_IDS.forEach(x=>document.getElementById(x).value='');document.getElementById('pin-err').textContent='';}
 
 document.addEventListener('DOMContentLoaded', function(){
   document.querySelectorAll('.pin-d').forEach((el,i,arr)=>{
